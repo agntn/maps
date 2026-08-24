@@ -67,26 +67,20 @@ export function assertQuery(query: string, provider: string): void {
   }
 }
 
-/** Operation names accepted by `requireOperation`. */
-export type ProviderOperation = "geocode" | "reverse";
-
-const OPERATION_CAPABILITIES = {
-  geocode: "geocode",
-  reverse: "reverse",
-} as const satisfies Record<ProviderOperation, keyof ProviderCapabilities>;
+/** Operation names accepted by `requireOperation` - one per capability flag. */
+export type ProviderOperation = keyof ProviderCapabilities;
 
 /**
- * Return a bound provider method after checking both the capability flag and method presence.
+ * Return a bound provider method after checking its capability flag.
  *
  * @throws {UnsupportedOperationError} When the provider does not serve the operation.
  */
 export function requireOperation<K extends ProviderOperation>(
   provider: Provider,
   operation: K,
-): NonNullable<Provider[K]> {
-  const method = provider[operation];
-  if (!provider.capabilities[OPERATION_CAPABILITIES[operation]] || typeof method !== "function") {
+): Provider[K] {
+  if (!provider.capabilities[operation]) {
     throw new UnsupportedOperationError(operation, provider.name);
   }
-  return method.bind(provider) as NonNullable<Provider[K]>;
+  return provider[operation].bind(provider) as Provider[K];
 }

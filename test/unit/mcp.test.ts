@@ -5,6 +5,7 @@ import { Provider } from "../../src/core/provider.ts";
 import type { ProviderConstructor } from "../../src/core/provider.ts";
 import { create, getDefaultURL, register } from "../../src/core/registry.ts";
 import { createMcpServer } from "../../src/mcp.ts";
+import { stubJSON } from "../helpers.ts";
 
 const openConnections: Array<{ close(): Promise<void> }> = [];
 
@@ -97,15 +98,7 @@ describe("Maps MCP server", () => {
   );
 
   it("includes the selected provider in operation results", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        return new Response(
-          JSON.stringify([{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska" }]),
-          { headers: { "content-type": "application/json" } },
-        );
-      }),
-    );
+    stubJSON([{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska" }]);
     const client = await connectTestClient();
 
     const response = await client.callTool({

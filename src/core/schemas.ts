@@ -31,7 +31,7 @@ export const limitInput = z
   .positive()
   .max(40)
   .optional()
-  .describe("Max results; providers cap this at 10-40 and silently truncate");
+  .describe("Max results; providers cap this at 20-40 and silently truncate");
 
 /** Preferred result language. */
 export const languageInput = z

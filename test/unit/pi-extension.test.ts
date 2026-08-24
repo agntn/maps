@@ -5,6 +5,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 import { Value } from "typebox/value";
+import { requireTool } from "../helpers.ts";
 import mapsExtension from "../../packages/pi/extensions/maps.ts";
 
 /** SAFETY: the extension only calls registerTool during registration; the fake implements that exact seam. */
@@ -18,12 +19,6 @@ function registerExtensionTools(): Map<string, ToolDefinition> {
 
   mapsExtension(api as unknown as ExtensionAPI);
   return tools;
-}
-
-function requireTool(tools: Map<string, ToolDefinition>, name: string): ToolDefinition {
-  const tool = tools.get(name);
-  if (!tool) throw new Error(`Tool not registered: ${name}`);
-  return tool;
 }
 
 /** SAFETY: the tested execute functions do not read ExtensionContext. */

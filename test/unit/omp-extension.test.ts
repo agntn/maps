@@ -19,6 +19,7 @@ vi.mock("@oh-my-pi/pi-coding-agent/tui", () => ({
   renderStatusLine: (options: unknown) => JSON.stringify(options),
 }));
 
+import { requireTool } from "../helpers.ts";
 import mapsOmpExtension, { sanitizeTerminalText } from "../../packages/omp/extensions/maps.ts";
 
 interface RegisteredExtension {
@@ -42,12 +43,6 @@ function registerExtensionTools(): RegisteredExtension {
 
   mapsOmpExtension(api as unknown as ExtensionAPI);
   return { label, tools };
-}
-
-function requireTool(tools: Map<string, ToolDefinition>, name: string): ToolDefinition {
-  const tool = tools.get(name);
-  if (!tool) throw new Error(`Tool not registered: ${name}`);
-  return tool;
 }
 
 /** SAFETY: the test host injects OMP's TypeBox facade, which creates this schema. */

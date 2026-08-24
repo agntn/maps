@@ -43,10 +43,9 @@ export default function mapsExtension(pi: ExtensionAPI): void {
       query: Type.String({ description: "Address or place to geocode", minLength: 1 }),
       limit: Type.Optional(
         Type.Integer({
-          description: "Maximum number of results",
+          description: "Maximum number of results; defaults to the provider maximum (20-40)",
           minimum: 1,
           maximum: 40,
-          default: 10,
         }),
       ),
       language: Type.Optional(
@@ -73,7 +72,7 @@ export default function mapsExtension(pi: ExtensionAPI): void {
       const { name, provider } = lib.selectProvider(params.provider);
       const geocode = lib.requireOperation(provider, "geocode");
       const locations = await geocode(params.query, {
-        limit: params.limit ?? 10,
+        limit: params.limit,
         language: params.language,
         countryCodes: params.countryCodes,
       });
@@ -131,8 +130,7 @@ export default function mapsExtension(pi: ExtensionAPI): void {
     parameters: Type.Object({}),
     async execute(): Promise<MapsToolResult> {
       const lib = await loadLibrary();
-      const names = lib.providers();
-      return textResult(`Registered providers (${names.length}):\n  ${names.join("\n  ")}`);
+      return textResult(lib.formatProviders(lib.listProviders()));
     },
   });
 }
