@@ -1,6 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { geocodeAddressAll, geocodeAll, reverseAll, serializeOutcomes } from "./core/all.ts";
+import {
+  geocodeAddressAll,
+  geocodeAddressWithFallback,
+  geocodeAll,
+  geocodeWithFallback,
+  reverseAll,
+  reverseWithFallback,
+  serializeOutcomes,
+} from "./core/all.ts";
 import { bearingBetween, distanceBetween } from "./core/coordinates.ts";
 import { formatDistance } from "./core/format.ts";
 import { requireOperation } from "./core/provider.ts";
@@ -62,9 +70,13 @@ export function createMcpServer(): McpServer {
       if (isAllProviders(provider)) {
         return result(serializeOutcomes(await geocodeAll(query, options)));
       }
-      const selected = selectProvider(provider);
-      const geocode = requireOperation(selected.provider, "geocode");
-      return providerResult(selected.name, await geocode(query, options));
+      if (provider?.trim()) {
+        const selected = selectProvider(provider);
+        const geocode = requireOperation(selected.provider, "geocode");
+        return providerResult(selected.name, await geocode(query, options));
+      }
+      const fallback = await geocodeWithFallback(query, options);
+      return providerResult(fallback.provider, fallback.result);
     },
   );
 
@@ -87,9 +99,13 @@ export function createMcpServer(): McpServer {
       if (isAllProviders(provider)) {
         return result(serializeOutcomes(await geocodeAddressAll(address, options)));
       }
-      const selected = selectProvider(provider);
-      const geocodeAddress = requireOperation(selected.provider, "geocodeAddress");
-      return providerResult(selected.name, await geocodeAddress(address, options));
+      if (provider?.trim()) {
+        const selected = selectProvider(provider);
+        const geocodeAddress = requireOperation(selected.provider, "geocodeAddress");
+        return providerResult(selected.name, await geocodeAddress(address, options));
+      }
+      const fallback = await geocodeAddressWithFallback(address, options);
+      return providerResult(fallback.provider, fallback.result);
     },
   );
 
@@ -111,9 +127,13 @@ export function createMcpServer(): McpServer {
       if (isAllProviders(provider)) {
         return result(serializeOutcomes(await reverseAll(latitude, longitude, options)));
       }
-      const selected = selectProvider(provider);
-      const reverse = requireOperation(selected.provider, "reverse");
-      return providerResult(selected.name, await reverse(latitude, longitude, options));
+      if (provider?.trim()) {
+        const selected = selectProvider(provider);
+        const reverse = requireOperation(selected.provider, "reverse");
+        return providerResult(selected.name, await reverse(latitude, longitude, options));
+      }
+      const fallback = await reverseWithFallback(latitude, longitude, options);
+      return providerResult(fallback.provider, fallback.result);
     },
   );
 

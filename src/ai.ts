@@ -4,7 +4,15 @@ import { tool, type Tool } from "ai";
 import { z } from "zod";
 import type { GeoLocation } from "./core/types.ts";
 import type { SerializedOutcome } from "./core/all.ts";
-import { geocodeAddressAll, geocodeAll, reverseAll, serializeOutcomes } from "./core/all.ts";
+import {
+  geocodeAddressAll,
+  geocodeAddressWithFallback,
+  geocodeAll,
+  geocodeWithFallback,
+  reverseAll,
+  reverseWithFallback,
+  serializeOutcomes,
+} from "./core/all.ts";
 import { bearingBetween, distanceBetween } from "./core/coordinates.ts";
 import { formatDistance } from "./core/format.ts";
 import { requireOperation } from "./core/provider.ts";
@@ -53,12 +61,13 @@ export const geocodeTool: Tool<z.infer<typeof geocodeInputSchema>, GeocodeToolOu
     if (isAllProviders(provider)) {
       return { comparison: serializeOutcomes(await geocodeAll(query, options)) };
     }
-    const selected = selectProvider(provider);
-    const geocode = requireOperation(selected.provider, "geocode");
-    return {
-      provider: selected.name,
-      locations: await geocode(query, options),
-    };
+    if (provider?.trim()) {
+      const selected = selectProvider(provider);
+      const geocode = requireOperation(selected.provider, "geocode");
+      return { provider: selected.name, locations: await geocode(query, options) };
+    }
+    const fallback = await geocodeWithFallback(query, options);
+    return { provider: fallback.provider, locations: fallback.result };
   },
 });
 
@@ -92,12 +101,13 @@ export const geocodeAddressTool: Tool<
     if (isAllProviders(provider)) {
       return { comparison: serializeOutcomes(await geocodeAddressAll(address, options)) };
     }
-    const selected = selectProvider(provider);
-    const geocodeAddress = requireOperation(selected.provider, "geocodeAddress");
-    return {
-      provider: selected.name,
-      locations: await geocodeAddress(address, options),
-    };
+    if (provider?.trim()) {
+      const selected = selectProvider(provider);
+      const geocodeAddress = requireOperation(selected.provider, "geocodeAddress");
+      return { provider: selected.name, locations: await geocodeAddress(address, options) };
+    }
+    const fallback = await geocodeAddressWithFallback(address, options);
+    return { provider: fallback.provider, locations: fallback.result };
   },
 });
 
@@ -114,12 +124,13 @@ export const reverseTool: Tool<z.infer<typeof reverseInputSchema>, ReverseToolOu
     if (isAllProviders(provider)) {
       return { comparison: serializeOutcomes(await reverseAll(latitude, longitude, options)) };
     }
-    const selected = selectProvider(provider);
-    const reverse = requireOperation(selected.provider, "reverse");
-    return {
-      provider: selected.name,
-      location: await reverse(latitude, longitude, options),
-    };
+    if (provider?.trim()) {
+      const selected = selectProvider(provider);
+      const reverse = requireOperation(selected.provider, "reverse");
+      return { provider: selected.name, location: await reverse(latitude, longitude, options) };
+    }
+    const fallback = await reverseWithFallback(latitude, longitude, options);
+    return { provider: fallback.provider, location: fallback.result };
   },
 });
 

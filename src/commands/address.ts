@@ -1,7 +1,7 @@
 /** Resolve a structured postal address to coordinates */
 import { defineCommand } from "citty";
 import consola from "consola";
-import { geocodeAddressAll } from "../core/all.ts";
+import { geocodeAddressAll, geocodeAddressWithFallback } from "../core/all.ts";
 import { formatAddressLabel, formatGeocodeAll, formatLocations } from "../core/format.ts";
 import { requireOperation } from "../core/provider.ts";
 import { isAllProviders, selectProvider } from "../core/resolve.ts";
@@ -77,9 +77,14 @@ export default defineCommand({
         consola.log(formatGeocodeAll(label, await geocodeAddressAll(address, options)));
         return;
       }
-      const { name, provider } = selectProvider(args.provider);
-      const geocodeAddress = requireOperation(provider, "geocodeAddress");
-      consola.log(formatLocations(name, label, await geocodeAddress(address, options)));
+      if (args.provider?.trim()) {
+        const { name, provider } = selectProvider(args.provider);
+        const geocodeAddress = requireOperation(provider, "geocodeAddress");
+        consola.log(formatLocations(name, label, await geocodeAddress(address, options)));
+        return;
+      }
+      const fallback = await geocodeAddressWithFallback(address, options);
+      consola.log(formatLocations(fallback.provider, label, fallback.result));
     } catch (error) {
       consola.error(`Error: ${error instanceof Error ? error.message : error}`);
       process.exit(1);

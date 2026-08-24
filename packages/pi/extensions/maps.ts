@@ -79,10 +79,14 @@ export default function mapsExtension(pi: ExtensionAPI): void {
         const outcomes = await lib.geocodeAll(params.query, options);
         return textResult(lib.formatGeocodeAll(params.query, outcomes));
       }
-      const { name, provider } = lib.selectProvider(params.provider);
-      const geocode = lib.requireOperation(provider, "geocode");
-      const locations = await geocode(params.query, options);
-      return textResult(lib.formatLocations(name, params.query, locations));
+      if (params.provider?.trim()) {
+        const { name, provider } = lib.selectProvider(params.provider);
+        const geocode = lib.requireOperation(provider, "geocode");
+        const locations = await geocode(params.query, options);
+        return textResult(lib.formatLocations(name, params.query, locations));
+      }
+      const fallback = await lib.geocodeWithFallback(params.query, options);
+      return textResult(lib.formatLocations(fallback.provider, params.query, fallback.result));
     },
   });
 
@@ -147,10 +151,14 @@ export default function mapsExtension(pi: ExtensionAPI): void {
         const outcomes = await lib.geocodeAddressAll(address, options);
         return textResult(lib.formatGeocodeAll(label, outcomes));
       }
-      const { name, provider } = lib.selectProvider(params.provider);
-      const geocodeAddress = lib.requireOperation(provider, "geocodeAddress");
-      const locations = await geocodeAddress(address, options);
-      return textResult(lib.formatLocations(name, label, locations));
+      if (params.provider?.trim()) {
+        const { name, provider } = lib.selectProvider(params.provider);
+        const geocodeAddress = lib.requireOperation(provider, "geocodeAddress");
+        const locations = await geocodeAddress(address, options);
+        return textResult(lib.formatLocations(name, label, locations));
+      }
+      const fallback = await lib.geocodeAddressWithFallback(address, options);
+      return textResult(lib.formatLocations(fallback.provider, label, fallback.result));
     },
   });
 
@@ -206,10 +214,14 @@ export default function mapsExtension(pi: ExtensionAPI): void {
         const outcomes = await lib.reverseAll(params.latitude, params.longitude, options);
         return textResult(lib.formatReverseAll(outcomes));
       }
-      const { name, provider } = lib.selectProvider(params.provider);
-      const reverse = lib.requireOperation(provider, "reverse");
-      const location = await reverse(params.latitude, params.longitude, options);
-      return textResult(lib.formatLocation(name, location));
+      if (params.provider?.trim()) {
+        const { name, provider } = lib.selectProvider(params.provider);
+        const reverse = lib.requireOperation(provider, "reverse");
+        const location = await reverse(params.latitude, params.longitude, options);
+        return textResult(lib.formatLocation(name, location));
+      }
+      const fallback = await lib.reverseWithFallback(params.latitude, params.longitude, options);
+      return textResult(lib.formatLocation(fallback.provider, fallback.result));
     },
   });
 

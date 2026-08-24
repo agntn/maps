@@ -1,7 +1,7 @@
 /** Resolve an address or place to coordinates */
 import { defineCommand } from "citty";
 import consola from "consola";
-import { geocodeAll } from "../core/all.ts";
+import { geocodeAll, geocodeWithFallback } from "../core/all.ts";
 import { formatGeocodeAll, formatLocations } from "../core/format.ts";
 import { requireOperation } from "../core/provider.ts";
 import { isAllProviders, selectProvider } from "../core/resolve.ts";
@@ -60,9 +60,14 @@ export default defineCommand({
         consola.log(formatGeocodeAll(args.query, await geocodeAll(args.query, options)));
         return;
       }
-      const { name, provider } = selectProvider(args.provider);
-      const geocode = requireOperation(provider, "geocode");
-      consola.log(formatLocations(name, args.query, await geocode(args.query, options)));
+      if (args.provider?.trim()) {
+        const { name, provider } = selectProvider(args.provider);
+        const geocode = requireOperation(provider, "geocode");
+        consola.log(formatLocations(name, args.query, await geocode(args.query, options)));
+        return;
+      }
+      const fallback = await geocodeWithFallback(args.query, options);
+      consola.log(formatLocations(fallback.provider, args.query, fallback.result));
     } catch (error) {
       consola.error(`Error: ${error instanceof Error ? error.message : error}`);
       process.exit(1);

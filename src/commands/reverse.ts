@@ -1,7 +1,7 @@
 /** Resolve coordinates to the place at or nearest to them */
 import { defineCommand } from "citty";
 import consola from "consola";
-import { reverseAll } from "../core/all.ts";
+import { reverseAll, reverseWithFallback } from "../core/all.ts";
 import { parseCoordinates } from "../core/coordinates.ts";
 import { formatLocation, formatReverseAll } from "../core/format.ts";
 import { requireOperation } from "../core/provider.ts";
@@ -58,10 +58,15 @@ export default defineCommand({
         consola.log(formatReverseAll(outcomes));
         return;
       }
-      const { name, provider } = selectProvider(args.provider);
-      const reverse = requireOperation(provider, "reverse");
-      const location = await reverse(latitude, longitude, options);
-      consola.log(formatLocation(name, location));
+      if (args.provider?.trim()) {
+        const { name, provider } = selectProvider(args.provider);
+        const reverse = requireOperation(provider, "reverse");
+        const location = await reverse(latitude, longitude, options);
+        consola.log(formatLocation(name, location));
+        return;
+      }
+      const fallback = await reverseWithFallback(latitude, longitude, options);
+      consola.log(formatLocation(fallback.provider, fallback.result));
     } catch (error) {
       consola.error(`Error: ${error instanceof Error ? error.message : error}`);
       process.exit(1);

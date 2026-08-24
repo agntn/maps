@@ -56,7 +56,7 @@ For a coordinate pair that starts with a minus, put `--` before it: `maps revers
 | `-n, --limit`    | Maximum number of results for `geocode`                                         |
 | `--country`      | Comma-separated ISO country codes to restrict `geocode`                         |
 
-Without `--provider`, Maps first checks configured API keys and then falls back to OpenStreetMap, which needs no key at all.
+Without `--provider`, Maps auto-selects by configured API keys and, when that backend answers with an auth, billing, or rate-limit failure, quietly retries the next one - the reply always names the provider that actually answered. An explicit `--provider` is never substituted.
 
 ## Providers
 

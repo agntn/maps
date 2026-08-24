@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   geocodeAddressAll,
   geocodeAll,
+  geocodeWithFallback,
   reverseAll,
+  reverseWithFallback,
   serializeOutcomes,
 } from "../../src/core/all.ts";
-import { AuthError } from "../../src/core/errors.ts";
+import { AuthError, InvalidInputError, RateLimitError } from "../../src/core/errors.ts";
 import { formatGeocodeAll, formatReverseAll } from "../../src/core/format.ts";
 import "../../src/providers/index.ts";
 
@@ -108,6 +110,54 @@ describe("reverseAll", () => {
     const outcomes = await reverseAll(95, 0);
 
     expect(outcomes.every((outcome) => outcome.error?.name === "InvalidInputError")).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("fallback", () => {
+  it("falls past an in-body auth failure to the next provider", async () => {
+    vi.stubEnv("GOOGLE_MAPS_API_KEY", "dummy");
+    const fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const body = String(input).includes("nominatim")
+        ? [OSM_PLACE]
+        : { status: "REQUEST_DENIED", results: [], error_message: "denied" };
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    const fallback = await geocodeWithFallback("Warszawa");
+
+    expect(fallback.provider).toBe("openstreetmap");
+    expect(fallback.result[0]?.displayName).toBe("Warszawa (OSM)");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses the resolved provider when it answers", async () => {
+    vi.stubEnv("GOOGLE_MAPS_API_KEY", "test-key");
+    stubRoutedFetch();
+
+    const fallback = await geocodeWithFallback("Warszawa");
+
+    expect(fallback.provider).toBe("googlemaps");
+    expect(fallback.result[0]?.displayName).toBe("Warsaw (Google)");
+  });
+
+  it("throws the first skip reason when every provider is inaccessible", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("slow down", { status: 429 })),
+    );
+
+    await expect(geocodeWithFallback("Warszawa")).rejects.toBeInstanceOf(RateLimitError);
+  });
+
+  it("propagates invalid input immediately instead of trying another provider", async () => {
+    const fetch = stubRoutedFetch();
+
+    await expect(reverseWithFallback(95, 0)).rejects.toBeInstanceOf(InvalidInputError);
     expect(fetch).not.toHaveBeenCalled();
   });
 });

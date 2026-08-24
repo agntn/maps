@@ -42,7 +42,15 @@ export { register, create, providers, has, getDefaultURL, listProviders } from "
 export type { ProviderListing } from "./core/registry.ts";
 export { isAllProviders, resolveProvider, selectProvider } from "./core/resolve.ts";
 export type { SelectedProvider } from "./core/resolve.ts";
-export { geocodeAddressAll, geocodeAll, reverseAll, serializeOutcomes } from "./core/all.ts";
+export {
+  geocodeAddressAll,
+  geocodeAddressWithFallback,
+  geocodeAll,
+  geocodeWithFallback,
+  reverseAll,
+  reverseWithFallback,
+  serializeOutcomes,
+} from "./core/all.ts";
 export type { ProviderOutcome, SerializedOutcome } from "./core/all.ts";
 export {
   formatAddressLabel,
