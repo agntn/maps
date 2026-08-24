@@ -9,6 +9,7 @@ Every maps platform answers the same two questions - "where is this place?" and 
 - **Two providers, one contract.** OpenStreetMap (Nominatim) and Google Maps.
 - **Works before the first key.** The public Nominatim instance answers without any API key, so `maps geocode "Pałac Kultury i Nauki"` just works.
 - **Coordinate checking.** `isValidCoordinates`, `assertCoordinates` and `parseCoordinates` validate WGS 84 latitude/longitude pairs before any request leaves the machine.
+- **Structured addresses.** Both providers map house number, street, city, state, postcode and country onto one `GeoAddress` shape - no per-provider field spelunking.
 - **Honest capabilities.** A provider declares what it can serve; unsupported operations throw `UnsupportedOperationError` instead of pretending.
 - **CLI, library, MCP and agent extensions.** Use the same provider contract from a terminal, TypeScript, an MCP client, OMP, Pi or the Vercel AI SDK.
 - **Keys never leak.** Error messages redact secret query params - the Google Maps `key` included - before anyone sees them.
@@ -72,6 +73,7 @@ console.log(best?.latitude, best?.longitude, best?.displayName);
 const { latitude, longitude } = parseCoordinates("52.2318,21.0067");
 const place = await provider.reverse(latitude, longitude, { language: "pl" });
 console.log(place.displayName);
+console.log(place.address?.city, place.address?.postcode);
 ```
 
 Check `provider.capabilities` before calling an operation - future backends may not serve both.

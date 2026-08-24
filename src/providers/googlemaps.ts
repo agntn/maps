@@ -11,6 +11,7 @@
  */
 
 import type {
+  GeoAddress,
   GeoLocation,
   GeocodeOptions,
   ProviderCapabilities,
@@ -28,7 +29,7 @@ import {
   RateLimitError,
 } from "../core/errors.ts";
 import { register } from "../core/registry.ts";
-import { clampMaxResults } from "../core/types.ts";
+import { clampMaxResults, compactAddress } from "../core/types.ts";
 
 /** The response is not paginated; the client slices locally. */
 const MAX_RESULTS = 20;
@@ -76,14 +77,27 @@ function assertOkStatus(data: GoogleResponse): GoogleResult[] {
   }
 }
 
+function component(raw: GoogleResult, type: string) {
+  return raw.address_components?.find((entry) => entry.types?.includes(type));
+}
+
+function mapAddress(raw: GoogleResult): GeoAddress | undefined {
+  return compactAddress({
+    houseNumber: component(raw, "street_number")?.long_name,
+    road: component(raw, "route")?.long_name,
+    city: component(raw, "locality")?.long_name ?? component(raw, "postal_town")?.long_name,
+    state: component(raw, "administrative_area_level_1")?.long_name,
+    postcode: component(raw, "postal_code")?.long_name,
+    country: component(raw, "country")?.long_name,
+  });
+}
+
 function mapResult(raw: GoogleResult): GeoLocation | undefined {
   const location = raw.geometry?.location;
   if (location?.lat === undefined || location.lng === undefined) return undefined;
   const northeast = raw.geometry?.viewport?.northeast;
   const southwest = raw.geometry?.viewport?.southwest;
-  const country = raw.address_components?.find((component) =>
-    component.types?.includes("country"),
-  )?.short_name;
+  const country = component(raw, "country")?.short_name;
 
   return {
     latitude: location.lat,
@@ -91,6 +105,7 @@ function mapResult(raw: GoogleResult): GeoLocation | undefined {
     displayName: raw.formatted_address,
     category: raw.types?.[0],
     countryCode: country?.toLowerCase(),
+    address: mapAddress(raw),
     boundingBox:
       northeast?.lat !== undefined &&
       northeast.lng !== undefined &&

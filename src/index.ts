@@ -4,6 +4,7 @@ import "./providers/index.ts";
 export { version } from "./version.ts";
 export type {
   BoundingBox,
+  GeoAddress,
   GeoLocation,
   GeocodeOptions,
   ProviderCapabilities,

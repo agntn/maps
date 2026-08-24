@@ -12,6 +12,27 @@ export interface BoundingBox {
   east: number;
 }
 
+/** Structured postal address parts, populated when the provider reports them. */
+export interface GeoAddress {
+  /** House or building number */
+  houseNumber?: string;
+  /** Street name */
+  road?: string;
+  /** City, town, or village name */
+  city?: string;
+  /** State, province, or region name */
+  state?: string;
+  /** Postal code */
+  postcode?: string;
+  /** Country name in the result language */
+  country?: string;
+}
+
+/** Collapse an address whose every field is absent onto `undefined`. */
+export function compactAddress(address: GeoAddress): GeoAddress | undefined {
+  return Object.values(address).some((value) => value !== undefined) ? address : undefined;
+}
+
 /** Normalized geocoding result: a place resolved to WGS 84 coordinates. */
 export interface GeoLocation {
   /** Latitude in decimal degrees, -90 through 90 */
@@ -24,6 +45,8 @@ export interface GeoLocation {
   category?: string;
   /** ISO 3166-1 alpha-2 country code, lowercase */
   countryCode?: string;
+  /** Structured postal address parts when the provider reports them */
+  address?: GeoAddress;
   /** Bounding box of the place when the provider reports one */
   boundingBox?: BoundingBox;
   /** Raw provider data */

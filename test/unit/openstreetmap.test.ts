@@ -17,7 +17,15 @@ const PALACE = {
   name: "Pałac Kultury i Nauki",
   display_name: "Pałac Kultury i Nauki, 1, Plac Defilad, Warszawa, 00-110, Polska",
   boundingbox: ["52.2304141", "52.2331217", "21.0043177", "21.0080405"],
-  address: { country_code: "pl" },
+  address: {
+    house_number: "1",
+    road: "Plac Defilad",
+    city: "Warszawa",
+    state: "województwo mazowieckie",
+    postcode: "00-110",
+    country: "Polska",
+    country_code: "pl",
+  },
 };
 
 afterEach(() => {
@@ -44,6 +52,14 @@ describe("openstreetmap provider", () => {
       displayName: "Pałac Kultury i Nauki, 1, Plac Defilad, Warszawa, 00-110, Polska",
       category: "building",
       countryCode: "pl",
+      address: {
+        houseNumber: "1",
+        road: "Plac Defilad",
+        city: "Warszawa",
+        state: "województwo mazowieckie",
+        postcode: "00-110",
+        country: "Polska",
+      },
       boundingBox: {
         south: 52.2304141,
         north: 52.2331217,
@@ -83,6 +99,18 @@ describe("openstreetmap provider", () => {
 
     await expect(create("openstreetmap").geocode("   ")).rejects.toBeInstanceOf(InvalidInputError);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("falls back through town/village for the city field and omits an empty address", async () => {
+    stubJSON([
+      { lat: "51.1", lon: "17.0", address: { town: "Brzeg Dolny", country_code: "pl" } },
+      { lat: "51.2", lon: "17.1" },
+    ]);
+
+    const locations = await create("openstreetmap").geocode("Brzeg Dolny");
+
+    expect(locations[0]?.address).toEqual({ city: "Brzeg Dolny" });
+    expect(locations[1]?.address).toBeUndefined();
   });
 
   it("maps a reverse hit to a single normalized location", async () => {

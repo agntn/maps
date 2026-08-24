@@ -57,12 +57,51 @@ describe("googlemaps provider", () => {
       displayName: "Warsaw, Poland",
       category: "locality",
       countryCode: "pl",
+      address: {
+        city: "Warsaw",
+        country: "Poland",
+      },
       boundingBox: {
         south: 52.0978767,
         north: 52.3679992,
         west: 20.8512898,
         east: 21.2710984,
       },
+    });
+  });
+
+  it("maps street-level address components onto the structured address", async () => {
+    stubJSON({
+      status: "OK",
+      results: [
+        {
+          formatted_address: "Złota 44, 00-120 Warszawa, Poland",
+          geometry: { location: { lat: 52.2312136, lng: 21.0024451 } },
+          address_components: [
+            { long_name: "44", short_name: "44", types: ["street_number"] },
+            { long_name: "Złota", short_name: "Złota", types: ["route"] },
+            { long_name: "Warszawa", short_name: "Warszawa", types: ["locality", "political"] },
+            {
+              long_name: "Województwo mazowieckie",
+              short_name: "Województwo mazowieckie",
+              types: ["administrative_area_level_1", "political"],
+            },
+            { long_name: "00-120", short_name: "00-120", types: ["postal_code"] },
+            { long_name: "Poland", short_name: "PL", types: ["country", "political"] },
+          ],
+        },
+      ],
+    });
+
+    const [location] = await createConfigured().geocode("Złota 44, Warszawa");
+
+    expect(location?.address).toEqual({
+      houseNumber: "44",
+      road: "Złota",
+      city: "Warszawa",
+      state: "Województwo mazowieckie",
+      postcode: "00-120",
+      country: "Poland",
     });
   });
 

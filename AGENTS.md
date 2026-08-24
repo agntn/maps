@@ -22,6 +22,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 - Coordinates are WGS 84 decimal degrees; validation lives in `core/coordinates.ts` (`isValidLatitude`, `isValidLongitude`, `isValidCoordinates`, `assertCoordinates`, `parseCoordinates`) and every provider `reverse()` calls `assertCoordinates` before building a URL
 - `GeoLocation.countryCode` is lowercase ISO 3166-1 alpha-2 on both providers (Google `short_name` is lowercased to match Nominatim)
+- `GeoLocation.address` is the normalized `GeoAddress`; city fallback chains are provider-specific (Nominatim: `city ?? town ?? village ?? hamlet ?? municipality`; Google: `locality ?? postal_town`), Google address fields use `long_name` (only `countryCode` reads `short_name`), and an all-empty address collapses onto `undefined` via `compactAddress()`
 - `BoundingBox` is `{ south, north, west, east }`; Nominatim's string quadruple and Google's `viewport` both map onto it
 - Provider registration is a class side effect: each concrete class owns a static `key`, and importing `src/providers/index.ts` triggers all `register()` calls - because of that, `package.json` must NOT declare `sideEffects: false`
 - One obuild bundle with four inputs (`index`, `cli`, `mcp`, `ai`) so every entry shares the chunk holding the registry
@@ -34,7 +35,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 ## Key files
 
-- `src/core/types.ts` - GeoLocation, BoundingBox, options, capabilities, config, `clampMaxResults`
+- `src/core/types.ts` - GeoLocation, GeoAddress, BoundingBox, options, capabilities, config, `clampMaxResults`, `compactAddress`
 - `src/core/coordinates.ts` - WGS 84 validation and `parseCoordinates("lat,lon")`
 - `src/core/provider.ts` - abstract `Provider` base class (`geocode`, `reverse`); `requireOperation()` capability gate
 - `src/core/errors.ts` - error hierarchy + `normalizeError` + URL sanitization

@@ -9,6 +9,7 @@
  */
 
 import type {
+  GeoAddress,
   GeoLocation,
   GeocodeOptions,
   ProviderCapabilities,
@@ -20,9 +21,23 @@ import { buildQuery } from "../core/client.ts";
 import { assertCoordinates } from "../core/coordinates.ts";
 import { NotFoundError } from "../core/errors.ts";
 import { register } from "../core/registry.ts";
-import { clampMaxResults } from "../core/types.ts";
+import { clampMaxResults, compactAddress } from "../core/types.ts";
 
 const MAX_RESULTS = 40;
+
+interface NominatimAddress {
+  house_number?: string;
+  road?: string;
+  city?: string;
+  town?: string;
+  village?: string;
+  hamlet?: string;
+  municipality?: string;
+  state?: string;
+  postcode?: string;
+  country?: string;
+  country_code?: string;
+}
 
 interface NominatimPlace {
   lat?: string;
@@ -32,9 +47,21 @@ interface NominatimPlace {
   type?: string;
   /** [south, north, west, east] as decimal-degree strings */
   boundingbox?: string[];
-  address?: { country_code?: string };
+  address?: NominatimAddress;
   /** Reverse lookups report failures in the body with HTTP 200 */
   error?: string;
+}
+
+function mapAddress(address?: NominatimAddress): GeoAddress | undefined {
+  if (!address) return undefined;
+  return compactAddress({
+    houseNumber: address.house_number,
+    road: address.road,
+    city: address.city ?? address.town ?? address.village ?? address.hamlet ?? address.municipality,
+    state: address.state,
+    postcode: address.postcode,
+    country: address.country,
+  });
 }
 
 function mapPlace(raw: NominatimPlace): GeoLocation {
@@ -45,6 +72,7 @@ function mapPlace(raw: NominatimPlace): GeoLocation {
     displayName: raw.display_name,
     category: raw.type ?? raw.category,
     countryCode: raw.address?.country_code,
+    address: mapAddress(raw.address),
     boundingBox:
       box?.length === 4 && box.every(Number.isFinite)
         ? { south: box[0]!, north: box[1]!, west: box[2]!, east: box[3]! }
