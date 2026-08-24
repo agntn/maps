@@ -1,8 +1,8 @@
 /** Compute the great-circle distance between two coordinate pairs */
 import { defineCommand } from "citty";
 import consola from "consola";
-import { distanceBetween, parseCoordinates } from "../core/coordinates.ts";
-import { formatDistance } from "../core/format.ts";
+import { bearingBetween, distanceBetween, parseCoordinates } from "../core/coordinates.ts";
+import { formatDistanceBearing } from "../core/format.ts";
 
 export default defineCommand({
   meta: {
@@ -24,8 +24,9 @@ export default defineCommand({
   },
   async run({ args }) {
     try {
-      const meters = distanceBetween(parseCoordinates(args.from), parseCoordinates(args.to));
-      consola.log(`Distance: ${formatDistance(meters)}`);
+      const from = parseCoordinates(args.from);
+      const to = parseCoordinates(args.to);
+      consola.log(formatDistanceBearing(distanceBetween(from, to), bearingBetween(from, to)));
     } catch (error) {
       consola.error(`Error: ${error instanceof Error ? error.message : error}`);
       process.exit(1);

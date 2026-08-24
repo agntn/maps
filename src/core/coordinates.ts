@@ -76,6 +76,27 @@ export function distanceBetween(from: GeoPoint, to: GeoPoint): number {
 }
 
 /**
+ * Initial great-circle bearing from one WGS 84 point toward another, in degrees.
+ *
+ * Measured clockwise from true north, 0 through 360. Like `distanceBetween`, this runs locally.
+ *
+ * @throws {InvalidInputError} When either point is out of range or not finite.
+ */
+export function bearingBetween(from: GeoPoint, to: GeoPoint): number {
+  assertCoordinates(from.latitude, from.longitude);
+  assertCoordinates(to.latitude, to.longitude);
+  const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
+  const deltaLongitude = toRadians(to.longitude - from.longitude);
+  const y = Math.sin(deltaLongitude) * Math.cos(toRadians(to.latitude));
+  const x =
+    Math.cos(toRadians(from.latitude)) * Math.sin(toRadians(to.latitude)) -
+    Math.sin(toRadians(from.latitude)) *
+      Math.cos(toRadians(to.latitude)) *
+      Math.cos(deltaLongitude);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+/**
  * Parse a "latitude,longitude" string into a validated coordinate pair.
  *
  * @example

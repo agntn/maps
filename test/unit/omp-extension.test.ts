@@ -60,6 +60,7 @@ describe("maps OMP extension", () => {
     expect(label).toBe("Maps");
     expect([...tools.keys()]).toEqual([
       "maps_geocode",
+      "maps_geocode_address",
       "maps_reverse",
       "maps_distance",
       "maps_providers",

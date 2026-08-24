@@ -34,11 +34,16 @@ class DisabledProvider extends Provider {
   override get capabilities() {
     return {
       geocode: false,
+      geocodeAddress: false,
       reverse: false,
     };
   }
 
   override async geocode(): Promise<never> {
+    throw new Error("capability gate bypassed");
+  }
+
+  override async geocodeAddress(): Promise<never> {
     throw new Error("capability gate bypassed");
   }
 
@@ -55,6 +60,7 @@ describe("Maps MCP server", () => {
     expect(listed.tools.map((tool) => tool.name)).toEqual([
       "maps_providers",
       "maps_geocode",
+      "maps_geocode_address",
       "maps_reverse",
       "maps_distance",
     ]);
@@ -65,6 +71,32 @@ describe("Maps MCP server", () => {
       {
         type: "text",
         text: expect.stringContaining('"name": "openstreetmap"'),
+      },
+    ]);
+  });
+
+  it("geocodes a structured address and rejects an all-empty one", async () => {
+    stubJSON([{ lat: "52.2312136", lon: "21.0024451", display_name: "Złota 44, Warszawa" }]);
+    const client = await connectTestClient();
+
+    const response = await client.callTool({
+      name: "maps_geocode_address",
+      arguments: { road: "Złota", houseNumber: "44", city: "Warszawa", provider: "openstreetmap" },
+    });
+    expect(response.isError).not.toBe(true);
+    expect(response.content).toEqual([
+      {
+        type: "text",
+        text: expect.stringMatching(/"provider": "openstreetmap"[\s\S]*"latitude": 52.2312136/),
+      },
+    ]);
+
+    const empty = await client.callTool({ name: "maps_geocode_address", arguments: {} });
+    expect(empty.isError).toBe(true);
+    expect(empty.content).toEqual([
+      {
+        type: "text",
+        text: expect.stringContaining("address needs at least one non-empty field"),
       },
     ]);
   });
@@ -102,7 +134,9 @@ describe("Maps MCP server", () => {
     expect(response.content).toEqual([
       {
         type: "text",
-        text: expect.stringMatching(/"meters": 111195\.0\d+[\s\S]*"formatted": "111\.20 km/),
+        text: expect.stringMatching(
+          /"meters": 111195\.0\d+[\s\S]*"formatted": "111\.20 km[\s\S]*"bearing": 90/,
+        ),
       },
     ]);
   });

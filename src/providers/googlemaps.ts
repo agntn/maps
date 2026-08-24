@@ -18,7 +18,7 @@ import type {
   ProviderConfig,
   ReverseOptions,
 } from "../core/types.ts";
-import { Provider, assertQuery } from "../core/provider.ts";
+import { Provider, assertAddress, assertQuery } from "../core/provider.ts";
 import { buildQuery } from "../core/client.ts";
 import { assertCoordinates } from "../core/coordinates.ts";
 import {
@@ -136,6 +136,7 @@ class GoogleMaps extends Provider {
   get capabilities(): ProviderCapabilities {
     return {
       geocode: true,
+      geocodeAddress: true,
       reverse: true,
     };
   }
@@ -156,6 +157,33 @@ class GoogleMaps extends Provider {
       address: query,
       language: options?.language,
       components: components || undefined,
+    });
+    return results
+      .map((result) => mapResult(result))
+      .filter((location) => location !== undefined)
+      .slice(0, clampMaxResults(options?.limit, MAX_RESULTS));
+  }
+
+  /**
+   * Street and house number ride in the free-form `address` param (Google's components filter
+   * has no street_number type); the remaining fields become `components` entries.
+   */
+  async geocodeAddress(address: GeoAddress, options?: GeocodeOptions): Promise<GeoLocation[]> {
+    assertAddress(address, "googlemaps");
+    const street = [address.houseNumber, address.road].filter(Boolean).join(" ");
+    const components = [
+      address.city ? `locality:${address.city}` : undefined,
+      address.state ? `administrative_area:${address.state}` : undefined,
+      address.postcode ? `postal_code:${address.postcode}` : undefined,
+      address.country ? `country:${address.country}` : undefined,
+      ...(options?.countryCodes?.map((code) => `country:${code.toUpperCase()}`) ?? []),
+    ]
+      .filter(Boolean)
+      .join("|");
+    const results = await this.fetchResults({
+      address: street || undefined,
+      components: components || undefined,
+      language: options?.language,
     });
     return results
       .map((result) => mapResult(result))

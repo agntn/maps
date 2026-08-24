@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertCoordinates,
+  bearingBetween,
   distanceBetween,
   isValidCoordinates,
   isValidLatitude,
@@ -85,6 +86,30 @@ describe("distanceBetween", () => {
     expect(() => distanceBetween(warsaw, { latitude: 0, longitude: 181 })).toThrow(
       InvalidInputError,
     );
+  });
+});
+
+describe("bearingBetween", () => {
+  it("points at the cardinal directions exactly", () => {
+    expect(bearingBetween({ latitude: 0, longitude: 0 }, { latitude: 0, longitude: 90 })).toBe(90);
+    expect(bearingBetween({ latitude: 0, longitude: 0 }, { latitude: 90, longitude: 0 })).toBe(0);
+    expect(bearingBetween({ latitude: 0, longitude: 0 }, { latitude: 0, longitude: -10 })).toBe(
+      270,
+    );
+    expect(bearingBetween({ latitude: 10, longitude: 0 }, { latitude: 0, longitude: 0 })).toBe(180);
+  });
+
+  /** Movable Type Scripts worked example: (35,45) toward (35,135) starts at 60.16 degrees. */
+  it("matches the published worked example", () => {
+    expect(
+      bearingBetween({ latitude: 35, longitude: 45 }, { latitude: 35, longitude: 135 }),
+    ).toBeCloseTo(60.16, 2);
+  });
+
+  it("rejects out-of-range points", () => {
+    expect(() =>
+      bearingBetween({ latitude: 91, longitude: 0 }, { latitude: 0, longitude: 0 }),
+    ).toThrow(InvalidInputError);
   });
 });
 

@@ -34,6 +34,7 @@ describe("maps Pi extension", () => {
 
     expect([...tools.keys()]).toEqual([
       "maps_geocode",
+      "maps_geocode_address",
       "maps_reverse",
       "maps_distance",
       "maps_providers",
@@ -98,7 +99,9 @@ describe("maps Pi extension", () => {
       unusedContext,
     );
 
-    expect(result.content).toEqual([{ type: "text", text: "Distance: 111.20 km (111195 m)" }]);
+    expect(result.content).toEqual([
+      { type: "text", text: "Distance: 111.20 km (111195 m)\nBearing: 90°" },
+    ]);
   });
 
   it("lists providers without model or network access", async () => {

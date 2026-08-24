@@ -46,6 +46,19 @@ export const languageInput = z
   .optional()
   .describe("Preferred language for result names (BCP 47, for example 'pl')");
 
+/**
+ * Structured address fields for component geocoding. Every field is optional; the provider
+ * rejects an address whose every field is absent.
+ */
+export const addressInput = {
+  houseNumber: z.string().trim().min(1).optional().describe("House or building number"),
+  road: z.string().trim().min(1).optional().describe("Street name"),
+  city: z.string().trim().min(1).optional().describe("City, town, or village name"),
+  state: z.string().trim().min(1).optional().describe("State, province, or region name"),
+  postcode: z.string().trim().min(1).optional().describe("Postal code"),
+  country: z.string().trim().min(1).optional().describe("Country name or ISO code"),
+};
+
 /** One coordinate pair, reusable for distance endpoints. */
 export const coordinatesInput = z.object({
   latitude: latitudeInput,

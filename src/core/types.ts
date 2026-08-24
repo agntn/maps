@@ -73,6 +73,8 @@ export interface ReverseOptions {
 export interface ProviderCapabilities {
   /** Can resolve a place or address to coordinates */
   geocode: boolean;
+  /** Can resolve a structured postal address to coordinates */
+  geocodeAddress: boolean;
   /** Can resolve coordinates to a place */
   reverse: boolean;
 }

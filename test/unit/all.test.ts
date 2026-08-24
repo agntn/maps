@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { geocodeAll, reverseAll, serializeOutcomes } from "../../src/core/all.ts";
+import {
+  geocodeAddressAll,
+  geocodeAll,
+  reverseAll,
+  serializeOutcomes,
+} from "../../src/core/all.ts";
 import { AuthError } from "../../src/core/errors.ts";
 import { formatGeocodeAll, formatReverseAll } from "../../src/core/format.ts";
 import "../../src/providers/index.ts";
@@ -67,6 +72,17 @@ describe("geocodeAll", () => {
 
     expect(text).toContain('[openstreetmap] 1 matches for "Warszawa"');
     expect(text).toContain("[googlemaps] error: Authentication failed for googlemaps");
+  });
+});
+
+describe("geocodeAddressAll", () => {
+  it("fans a structured address out with failures kept inline", async () => {
+    stubRoutedFetch();
+
+    const outcomes = await geocodeAddressAll({ city: "Warszawa" });
+
+    expect(outcomes[0]?.result?.[0]?.displayName).toBe("Warszawa (OSM)");
+    expect(outcomes[1]?.error).toBeInstanceOf(AuthError);
   });
 });
 

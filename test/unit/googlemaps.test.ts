@@ -38,11 +38,36 @@ describe("googlemaps provider", () => {
     expect(() => create("googlemaps")).toThrow(AuthError);
   });
 
-  it("serves both operations once configured", () => {
+  it("serves every operation once configured", () => {
     expect(createConfigured().capabilities).toEqual({
       geocode: true,
+      geocodeAddress: true,
       reverse: true,
     });
+  });
+
+  it("splits a structured address into the address param and a components filter", async () => {
+    const fetch = stubJSON({ status: "ZERO_RESULTS", results: [] });
+
+    await createConfigured().geocodeAddress({
+      houseNumber: "44",
+      road: "Złota",
+      city: "Warszawa",
+      country: "PL",
+    });
+
+    const url = String(fetch.mock.calls[0]?.[0]);
+    expect(url).toContain("address=44+Z%C5%82ota");
+    expect(url).toContain("components=locality%3AWarszawa%7Ccountry%3APL");
+  });
+
+  it("rejects an all-empty structured address without any request", async () => {
+    const fetch = stubJSON({});
+
+    await expect(createConfigured().geocodeAddress({})).rejects.toMatchObject({
+      name: "InvalidInputError",
+    });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("maps a geocoding result to the normalized location shape", async () => {

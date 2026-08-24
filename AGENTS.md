@@ -2,20 +2,20 @@
 
 ## Scope
 
-Unified geocoding provider library. Normalizes forward geocoding (address or place to WGS 84 coordinates) and reverse geocoding (coordinates to place) across providers, with coordinate validation and local great-circle distance (haversine) in core. Exports a CLI (`maps` binary), a programmatic API, an MCP server (`@agntn/maps/mcp`), Vercel AI SDK tools (`@agntn/maps/ai`), and Pi/OMP extensions.
+Unified geocoding provider library. Normalizes forward geocoding (free-form and structured-address input), reverse geocoding, and structured address output across providers, with coordinate validation and local great-circle distance plus bearing (haversine) in core. Exports a CLI (`maps` binary), a programmatic API, an MCP server (`@agntn/maps/mcp`), Vercel AI SDK tools (`@agntn/maps/ai`), and Pi/OMP extensions.
 
 ## Providers
 
-| Provider      | Auth                             | Capabilities     | Notes                                            |
-| ------------- | -------------------------------- | ---------------- | ------------------------------------------------ |
-| openstreetmap | none                             | geocode, reverse | Public Nominatim; usage policy: max 1 req/s      |
-| googlemaps    | `GOOGLE_MAPS_API_KEY` (required) | geocode, reverse | Geocoding API; errors ride in-body with HTTP 200 |
+| Provider      | Auth                             | Capabilities                     | Notes                                            |
+| ------------- | -------------------------------- | -------------------------------- | ------------------------------------------------ |
+| openstreetmap | none                             | geocode, geocodeAddress, reverse | Public Nominatim; usage policy: max 1 req/s      |
+| googlemaps    | `GOOGLE_MAPS_API_KEY` (required) | geocode, geocodeAddress, reverse | Geocoding API; errors ride in-body with HTTP 200 |
 
 ## API audit (2026-08-24)
 
 Live verification performed before scaffolding, per the agntn scaffold procedure:
 
-- **Nominatim** (`nominatim.openstreetmap.org`): `/search?q=...&format=jsonv2` and `/reverse?lat=..&lon=..&format=jsonv2` verified 200 without a key. Requires an identifying `User-Agent` (the shared client sends `agntn-maps/<version> (...)`). Reverse failures come back as `{ "error": "Unable to geocode" }` with HTTP 200. `boundingbox` is `[south, north, west, east]` as strings; `search` caps `limit` at 40.
+- **Nominatim** (`nominatim.openstreetmap.org`): `/search?q=...&format=jsonv2`, structured `/search?street=44+Złota&city=Warszawa` (street carries "housenumber streetname"), and `/reverse?lat=..&lon=..&format=jsonv2` verified 200 without a key. Requires an identifying `User-Agent` (the shared client sends `agntn-maps/<version> (...)`). Reverse failures come back as `{ "error": "Unable to geocode" }` with HTTP 200. `boundingbox` is `[south, north, west, east]` as strings; `search` caps `limit` at 40.
 - **Google Geocoding** (`maps.googleapis.com/maps/api/geocode/json`): alive; without a key answers HTTP 200 with `{ status: "REQUEST_DENIED", error_message: ... }` - key-gated, mapped defensively from documented shapes. Every failure (`REQUEST_DENIED`, `OVER_QUERY_LIMIT`, `INVALID_REQUEST`, `ZERO_RESULTS`) travels in the JSON body with HTTP 200; the provider maps `status` onto the error hierarchy in `assertOkStatus()`. There is no server-side result limit - the provider slices locally.
 
 ## Conventions
@@ -33,28 +33,29 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - `selectProvider()` in `core/resolve.ts` is the single provider selection path for the CLI, MCP, AI tools, and both extensions; empty or whitespace-only arguments count as absent
 - The provider value `all` is reserved: surfaces test it with `isAllProviders()` before `selectProvider()` and route to the parallel fan-out in `core/all.ts` (`geocodeAll`/`reverseAll`); failures stay in the outcome list (`ProviderOutcome`), JSON surfaces reduce them via `serializeOutcomes()`, text surfaces render via `formatGeocodeAll`/`formatReverseAll`
 - Capability gating goes through `requireOperation()` in `core/provider.ts`; text rendering through the `format*` helpers in `core/format.ts` - do not re-implement either per surface
+- Structured geocoding takes the same `GeoAddress` shape the results use; `assertAddress()` rejects an all-empty input, Nominatim gets `street`/`city`/`state`/`postalcode`/`country` params, Google gets house number and street in the free-form `address` param plus the rest as a `components` filter (its filter has no street_number type)
 
 ## Key files
 
 - `src/core/types.ts` - GeoLocation, GeoAddress, BoundingBox, options, capabilities, config, `clampMaxResults`, `compactAddress`
-- `src/core/coordinates.ts` - WGS 84 validation, `parseCoordinates("lat,lon")`, `distanceBetween` (haversine, IUGG mean radius, no network)
+- `src/core/coordinates.ts` - WGS 84 validation, `parseCoordinates("lat,lon")`, `distanceBetween` and `bearingBetween` (haversine, IUGG mean radius, no network)
 - `src/core/provider.ts` - abstract `Provider` base class (`geocode`, `reverse`); `requireOperation()` capability gate
 - `src/core/errors.ts` - error hierarchy + `normalizeError` + URL sanitization
 - `src/core/registry.ts` - self-registering provider registry (register, create, providers, has, getDefaultURL, listProviders)
 - `src/core/resolve.ts` - env-based auto-selection, shared `selectProvider()`, `isAllProviders()`
-- `src/core/all.ts` - parallel fan-out over every provider (`geocodeAll`, `reverseAll`, `serializeOutcomes`)
+- `src/core/all.ts` - parallel fan-out over every provider (`geocodeAll`, `geocodeAddressAll`, `reverseAll`, `serializeOutcomes`)
 - `src/core/format.ts` - plain-text formatters shared by every output surface, `formatProviders` included
 - `src/core/schemas.ts` - zod input fragments shared by the MCP server and the AI tools
 - `src/core/client.ts` - ofetch wrapper (15 s timeout, no retry, identifying User-Agent), `buildQuery`
 - `src/providers/*.ts` - one file per provider, self-registering via `register()`
-- `src/mcp.ts` - `createMcpServer()`, four read-only tools (`maps_distance` computes locally, no provider)
+- `src/mcp.ts` - `createMcpServer()`, five read-only tools (`maps_distance` computes locally, no provider)
 - `src/ai.ts` - Vercel AI SDK tool surface
 - `src/cli.ts` + `src/commands/*.ts` - citty CLI (lazy subcommands; provider selection via `selectProvider()` from core)
 - `packages/pi/extensions/maps.ts`, `packages/omp/extensions/maps.ts` - agent extensions; type-import from `dist/index.d.mts`. The OMP loader keeps both dynamic imports literal: `existsSync(src)` chooses `import("../../../src/index.ts")` or `import("../../../dist/index.mjs")`. An `import(url.href)` loses `ofetch` resolution in the compiled binary
 
 ## CLI subcommands
 
-`geocode`, `reverse`, `distance`, `providers`, `mcp` - provider commands support `-p` (provider) and `-l` (language); `geocode` adds `-n` (limit) and `--country` (comma-separated ISO codes); `distance` is local-only. `reverse` and `distance` take positional `"latitude,longitude"` pairs; a pair starting with a minus needs a `--` separator first, because the argument parser would read it as a flag.
+`geocode`, `address`, `reverse`, `distance`, `providers`, `mcp` - provider commands support `-p` (provider, `all` included) and `-l` (language); `geocode` adds `-n` (limit) and `--country` (comma-separated ISO codes); `address` takes the fields as flags (`--house`, `--road`, `--city`, `--state`, `--postcode`, `--country`); `distance` is local-only and prints bearing too. `reverse` and `distance` take positional `"latitude,longitude"` pairs; a pair starting with a minus needs a `--` separator first, because the argument parser would read it as a flag.
 
 ## Constraints
 

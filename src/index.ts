@@ -14,6 +14,7 @@ export type {
 export { clampMaxResults } from "./core/types.ts";
 export {
   assertCoordinates,
+  bearingBetween,
   distanceBetween,
   isValidCoordinates,
   isValidLatitude,
@@ -21,7 +22,7 @@ export {
   parseCoordinates,
 } from "./core/coordinates.ts";
 export type { GeoPoint } from "./core/coordinates.ts";
-export { Provider, assertQuery, requireOperation } from "./core/provider.ts";
+export { Provider, assertAddress, assertQuery, requireOperation } from "./core/provider.ts";
 export type { ProviderConstructor, ProviderOperation } from "./core/provider.ts";
 export {
   MapsError,
@@ -40,10 +41,12 @@ export { register, create, providers, has, getDefaultURL, listProviders } from "
 export type { ProviderListing } from "./core/registry.ts";
 export { isAllProviders, resolveProvider, selectProvider } from "./core/resolve.ts";
 export type { SelectedProvider } from "./core/resolve.ts";
-export { geocodeAll, reverseAll, serializeOutcomes } from "./core/all.ts";
+export { geocodeAddressAll, geocodeAll, reverseAll, serializeOutcomes } from "./core/all.ts";
 export type { ProviderOutcome, SerializedOutcome } from "./core/all.ts";
 export {
+  formatAddressLabel,
   formatDistance,
+  formatDistanceBearing,
   formatGeocodeAll,
   formatLocation,
   formatLocationLine,

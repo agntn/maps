@@ -157,6 +157,74 @@ export default function mapsExtension(pi: ExtensionAPI): void {
     },
   });
 
+  const geocodeAddressParameters = Type.Object({
+    houseNumber: Type.Optional(
+      Type.String({ description: "House or building number", minLength: 1 }),
+    ),
+    road: Type.Optional(Type.String({ description: "Street name", minLength: 1 })),
+    city: Type.Optional(Type.String({ description: "City, town, or village name", minLength: 1 })),
+    state: Type.Optional(
+      Type.String({ description: "State, province, or region name", minLength: 1 }),
+    ),
+    postcode: Type.Optional(Type.String({ description: "Postal code", minLength: 1 })),
+    country: Type.Optional(Type.String({ description: "Country name or ISO code", minLength: 1 })),
+    limit: Type.Optional(
+      Type.Integer({
+        description: "Maximum number of results; defaults to the provider maximum (20-40)",
+        minimum: 1,
+        maximum: 40,
+      }),
+    ),
+    language: Type.Optional(
+      Type.String({
+        description: "Preferred language for result names (BCP 47, for example 'pl')",
+        minLength: 1,
+      }),
+    ),
+    provider: Type.Optional(
+      Type.String({
+        description: "Provider, or 'all' to compare every provider",
+        minLength: 1,
+      }),
+    ),
+  });
+
+  pi.registerTool({
+    name: "maps_geocode_address",
+    label: "Maps Geocode Address",
+    description:
+      "Resolve a structured postal address (street, city, postcode, ...) to coordinates. Needs at least one field.",
+    parameters: geocodeAddressParameters,
+    approval: "read",
+    renderCall(args, options, theme) {
+      const label = [args.houseNumber, args.road, args.city, args.postcode, args.country]
+        .filter(Boolean)
+        .join(", ");
+      return statusLine("Maps Geocode Address", label || "empty address", options, theme);
+    },
+    async execute(_toolCallId, params): Promise<MapsToolResult> {
+      const lib = await loadLibrary();
+      const address = {
+        houseNumber: params.houseNumber,
+        road: params.road,
+        city: params.city,
+        state: params.state,
+        postcode: params.postcode,
+        country: params.country,
+      };
+      const options = { limit: params.limit, language: params.language };
+      const label = lib.formatAddressLabel(address);
+      if (lib.isAllProviders(params.provider)) {
+        const outcomes = await lib.geocodeAddressAll(address, options);
+        return textResult(lib.formatGeocodeAll(label, outcomes));
+      }
+      const { name, provider } = lib.selectProvider(params.provider);
+      const geocodeAddress = lib.requireOperation(provider, "geocodeAddress");
+      const locations = await geocodeAddress(address, options);
+      return textResult(lib.formatLocations(name, label, locations));
+    },
+  });
+
   const reverseParameters = Type.Object({
     latitude: Type.Number({
       description: "Latitude in decimal degrees",
@@ -235,7 +303,7 @@ export default function mapsExtension(pi: ExtensionAPI): void {
     name: "maps_distance",
     label: "Maps Distance",
     description:
-      "Great-circle distance in meters between two coordinate pairs (haversine, computed locally).",
+      "Great-circle distance and initial bearing between two coordinate pairs (haversine, computed locally).",
     parameters: distanceParameters,
     approval: "read",
     renderCall(args, options, theme) {
@@ -251,7 +319,8 @@ export default function mapsExtension(pi: ExtensionAPI): void {
     async execute(_toolCallId, params): Promise<MapsToolResult> {
       const lib = await loadLibrary();
       const meters = lib.distanceBetween(params.from, params.to);
-      return textResult(`Distance: ${lib.formatDistance(meters)}`);
+      const bearing = lib.bearingBetween(params.from, params.to);
+      return textResult(lib.formatDistanceBearing(meters, bearing));
     },
   });
 

@@ -1,4 +1,5 @@
 import type {
+  GeoAddress,
   GeoLocation,
   GeocodeOptions,
   ProviderCapabilities,
@@ -33,6 +34,9 @@ export abstract class Provider {
   /** Resolve a free-form place or address query to coordinates, best match first. */
   abstract geocode(query: string, options?: GeocodeOptions): Promise<GeoLocation[]>;
 
+  /** Resolve a structured postal address (street, city, postcode, ...) to coordinates. */
+  abstract geocodeAddress(address: GeoAddress, options?: GeocodeOptions): Promise<GeoLocation[]>;
+
   /** Resolve a coordinate pair to the place at or nearest to it. */
   abstract reverse(
     latitude: number,
@@ -64,6 +68,20 @@ export interface ProviderConstructor {
 export function assertQuery(query: string, provider: string): void {
   if (!query.trim()) {
     throw new InvalidInputError("query is empty", provider);
+  }
+}
+
+/**
+ * Reject a structured address with no usable field before any request is sent.
+ *
+ * @throws {InvalidInputError} When every address field is absent or whitespace-only.
+ */
+export function assertAddress(address: GeoAddress, provider: string): void {
+  const hasContent = Object.values(address).some(
+    (value) => typeof value === "string" && value.trim() !== "",
+  );
+  if (!hasContent) {
+    throw new InvalidInputError("address needs at least one non-empty field", provider);
   }
 }
 

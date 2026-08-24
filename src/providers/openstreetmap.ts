@@ -16,7 +16,7 @@ import type {
   ProviderConfig,
   ReverseOptions,
 } from "../core/types.ts";
-import { Provider, assertQuery } from "../core/provider.ts";
+import { Provider, assertAddress, assertQuery } from "../core/provider.ts";
 import { buildQuery } from "../core/client.ts";
 import { assertCoordinates } from "../core/coordinates.ts";
 import { NotFoundError } from "../core/errors.ts";
@@ -94,20 +94,41 @@ class OpenStreetMap extends Provider {
   get capabilities(): ProviderCapabilities {
     return {
       geocode: true,
+      geocodeAddress: true,
       reverse: true,
     };
   }
 
-  async geocode(query: string, options?: GeocodeOptions): Promise<GeoLocation[]> {
-    assertQuery(query, "openstreetmap");
+  /** Shared query-string tail for both geocoding shapes. */
+  private searchParams(options?: GeocodeOptions): Record<string, string | number | undefined> {
     const countryCodes = options?.countryCodes?.map((code) => code.toLowerCase()).join(",");
-    const url = `${this.baseUrl}/search${buildQuery({
-      q: query,
+    return {
       format: "jsonv2",
       addressdetails: 1,
       limit: clampMaxResults(options?.limit, MAX_RESULTS),
       "accept-language": options?.language,
       countrycodes: countryCodes || undefined,
+    };
+  }
+
+  async geocode(query: string, options?: GeocodeOptions): Promise<GeoLocation[]> {
+    assertQuery(query, "openstreetmap");
+    const url = `${this.baseUrl}/search${buildQuery({ q: query, ...this.searchParams(options) })}`;
+    const data = await this.getJSON<NominatimPlace[]>(url);
+    return data.map((place) => mapPlace(place));
+  }
+
+  /** Nominatim structured search; `street` carries "housenumber streetname" per its contract. */
+  async geocodeAddress(address: GeoAddress, options?: GeocodeOptions): Promise<GeoLocation[]> {
+    assertAddress(address, "openstreetmap");
+    const street = [address.houseNumber, address.road].filter(Boolean).join(" ");
+    const url = `${this.baseUrl}/search${buildQuery({
+      street: street || undefined,
+      city: address.city,
+      state: address.state,
+      postalcode: address.postcode,
+      country: address.country,
+      ...this.searchParams(options),
     })}`;
     const data = await this.getJSON<NominatimPlace[]>(url);
     return data.map((place) => mapPlace(place));

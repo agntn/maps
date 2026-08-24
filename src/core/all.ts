@@ -1,7 +1,7 @@
 /** Parallel fan-out over every registered provider, for side-by-side comparison. */
 
 import type { Provider } from "./provider.ts";
-import type { GeoLocation, GeocodeOptions, ReverseOptions } from "./types.ts";
+import type { GeoAddress, GeoLocation, GeocodeOptions, ReverseOptions } from "./types.ts";
 import { MapsError, normalizeError } from "./errors.ts";
 import { requireOperation } from "./provider.ts";
 import { create, providers } from "./registry.ts";
@@ -53,6 +53,14 @@ export function geocodeAll(
   options?: GeocodeOptions,
 ): Promise<ProviderOutcome<GeoLocation[]>[]> {
   return runAll((provider) => requireOperation(provider, "geocode")(query, options));
+}
+
+/** Geocode one structured address on every registered provider in parallel. */
+export function geocodeAddressAll(
+  address: GeoAddress,
+  options?: GeocodeOptions,
+): Promise<ProviderOutcome<GeoLocation[]>[]> {
+  return runAll((provider) => requireOperation(provider, "geocodeAddress")(address, options));
 }
 
 /** Reverse-geocode one coordinate pair on every registered provider in parallel. */

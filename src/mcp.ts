@@ -1,12 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { geocodeAll, reverseAll, serializeOutcomes } from "./core/all.ts";
-import { distanceBetween } from "./core/coordinates.ts";
+import { geocodeAddressAll, geocodeAll, reverseAll, serializeOutcomes } from "./core/all.ts";
+import { bearingBetween, distanceBetween } from "./core/coordinates.ts";
 import { formatDistance } from "./core/format.ts";
 import { requireOperation } from "./core/provider.ts";
 import { listProviders } from "./core/registry.ts";
 import { isAllProviders, selectProvider } from "./core/resolve.ts";
 import {
+  addressInput,
   coordinatesInput,
   countryCodesInput,
   languageInput,
@@ -67,6 +68,31 @@ export function createMcpServer(): McpServer {
   );
 
   server.registerTool(
+    "maps_geocode_address",
+    {
+      description:
+        "Resolve a structured postal address (street, city, postcode, ...) to normalized coordinates",
+      inputSchema: {
+        ...addressInput,
+        limit: limitInput,
+        language: languageInput,
+        ...providerInput,
+      },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ houseNumber, road, city, state, postcode, country, limit, language, provider }) => {
+      const address = { houseNumber, road, city, state, postcode, country };
+      const options = { limit, language };
+      if (isAllProviders(provider)) {
+        return result(serializeOutcomes(await geocodeAddressAll(address, options)));
+      }
+      const selected = selectProvider(provider);
+      const geocodeAddress = requireOperation(selected.provider, "geocodeAddress");
+      return providerResult(selected.name, await geocodeAddress(address, options));
+    },
+  );
+
+  server.registerTool(
     "maps_reverse",
     {
       description: "Resolve a latitude/longitude pair to the place at or nearest to it",
@@ -92,7 +118,7 @@ export function createMcpServer(): McpServer {
     "maps_distance",
     {
       description:
-        "Great-circle distance in meters between two coordinate pairs (haversine, computed locally)",
+        "Great-circle distance in meters and initial bearing between two coordinate pairs (haversine, computed locally)",
       inputSchema: {
         from: coordinatesInput.describe("Start point"),
         to: coordinatesInput.describe("End point"),
@@ -101,7 +127,8 @@ export function createMcpServer(): McpServer {
     },
     ({ from, to }) => {
       const meters = distanceBetween(from, to);
-      return result({ meters, formatted: formatDistance(meters) });
+      const bearing = Math.round(bearingBetween(from, to) * 10) / 10;
+      return result({ meters, formatted: formatDistance(meters), bearing });
     },
   );
 

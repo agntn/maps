@@ -2,7 +2,7 @@
 
 import type { ProviderOutcome } from "./all.ts";
 import type { ProviderListing } from "./registry.ts";
-import type { GeoLocation } from "./types.ts";
+import type { GeoAddress, GeoLocation } from "./types.ts";
 
 /** One-line label for a location in a list: coordinates plus its display name. */
 export function formatLocationLine(location: GeoLocation): string {
@@ -35,6 +35,20 @@ export function formatLocations(
   return `[${providerName}] ${locations.length} matches for "${query}":\n${lines.join("\n")}`;
 }
 
+/** One-line label for a structured address, used where a query string would appear. */
+export function formatAddressLabel(address: GeoAddress): string {
+  return [
+    address.houseNumber,
+    address.road,
+    address.city,
+    address.state,
+    address.postcode,
+    address.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
 /** Side-by-side geocoding results from every registered provider, failures included. */
 export function formatGeocodeAll(
   query: string,
@@ -64,6 +78,11 @@ export function formatReverseAll(outcomes: ProviderOutcome<GeoLocation>[]): stri
 export function formatDistance(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)} m`;
   return `${(meters / 1000).toFixed(2)} km (${Math.round(meters)} m)`;
+}
+
+/** Distance plus initial bearing, the shape the text surfaces print for one measurement. */
+export function formatDistanceBearing(meters: number, bearing: number): string {
+  return `Distance: ${formatDistance(meters)}\nBearing: ${Math.round(bearing * 10) / 10}°`;
 }
 
 /** Multi-line listing of registered providers and what each can serve. */

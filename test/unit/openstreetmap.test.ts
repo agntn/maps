@@ -33,11 +33,38 @@ afterEach(() => {
 });
 
 describe("openstreetmap provider", () => {
-  it("serves both operations", () => {
+  it("serves every operation", () => {
     expect(create("openstreetmap").capabilities).toEqual({
       geocode: true,
+      geocodeAddress: true,
       reverse: true,
     });
+  });
+
+  it("sends structured address fields as Nominatim search params", async () => {
+    const fetch = stubJSON([]);
+
+    await create("openstreetmap").geocodeAddress({
+      houseNumber: "44",
+      road: "Złota",
+      city: "Warszawa",
+      postcode: "00-120",
+    });
+
+    const url = String(fetch.mock.calls[0]?.[0]);
+    expect(url).toContain("street=44+Z%C5%82ota");
+    expect(url).toContain("city=Warszawa");
+    expect(url).toContain("postalcode=00-120");
+    expect(url).not.toContain("q=");
+  });
+
+  it("rejects an all-empty structured address without any request", async () => {
+    const fetch = stubJSON([]);
+
+    await expect(create("openstreetmap").geocodeAddress({ city: "  " })).rejects.toMatchObject({
+      name: "InvalidInputError",
+    });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("maps a search hit to the normalized location shape", async () => {
