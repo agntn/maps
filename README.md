@@ -10,6 +10,7 @@ Every maps platform answers the same two questions - "where is this place?" and 
 - **Works before the first key.** The public Nominatim instance answers without any API key, so `maps geocode "Pałac Kultury i Nauki"` just works.
 - **Coordinate checking.** `isValidCoordinates`, `assertCoordinates` and `parseCoordinates` validate WGS 84 latitude/longitude pairs before any request leaves the machine.
 - **Structured addresses.** Both providers map house number, street, city, state, postcode and country onto one `GeoAddress` shape - no per-provider field spelunking.
+- **Distance without a provider.** `distanceBetween` computes the great-circle distance (haversine) locally - no key, no network, no rate limit.
 - **Honest capabilities.** A provider declares what it can serve; unsupported operations throw `UnsupportedOperationError` instead of pretending.
 - **CLI, library, MCP and agent extensions.** Use the same provider contract from a terminal, TypeScript, an MCP client, OMP, Pi or the Vercel AI SDK.
 - **Keys never leak.** Error messages redact secret query params - the Google Maps `key` included - before anyone sees them.
@@ -33,12 +34,13 @@ npx @agntn/maps geocode "Springfield" --country us -n 5
 
 ### Commands
 
-| Command     | What it does                                | Example                         |
-| ----------- | ------------------------------------------- | ------------------------------- |
-| `geocode`   | Address or place to coordinates             | `maps geocode "Rynek, Wrocław"` |
-| `reverse`   | `latitude,longitude` to the nearest place   | `maps reverse 52.2318,21.0067`  |
-| `providers` | Registered providers and their capabilities | `maps providers`                |
-| `mcp`       | MCP server over stdio                       | `maps mcp`                      |
+| Command     | What it does                                | Example                                         |
+| ----------- | ------------------------------------------- | ----------------------------------------------- |
+| `geocode`   | Address or place to coordinates             | `maps geocode "Rynek, Wrocław"`                 |
+| `reverse`   | `latitude,longitude` to the nearest place   | `maps reverse 52.2318,21.0067`                  |
+| `distance`  | Great-circle distance between two pairs     | `maps distance 52.2297,21.0122 50.0647,19.9450` |
+| `providers` | Registered providers and their capabilities | `maps providers`                                |
+| `mcp`       | MCP server over stdio                       | `maps mcp`                                      |
 
 For a coordinate pair that starts with a minus, put `--` before it: `maps reverse -- -33.86,151.21`.
 
@@ -80,7 +82,7 @@ Check `provider.capabilities` before calling an operation - future backends may 
 
 ## MCP
 
-The package ships an MCP server with three read-only tools (`maps_providers`, `maps_geocode`, `maps_reverse`):
+The package ships an MCP server with four read-only tools (`maps_providers`, `maps_geocode`, `maps_reverse`, `maps_distance`):
 
 ```bash
 claude mcp add maps --scope user -- npx @agntn/maps mcp
@@ -96,11 +98,11 @@ Maps ships separate entrypoints for OMP and Pi. Install the published package in
 omp install @agntn/maps
 ```
 
-From a source checkout, link the local package instead with `omp install .`. OMP loads `packages/omp/extensions/maps.ts` through the package's `omp.extensions` manifest; Pi loads `packages/pi/extensions/maps.ts` the same way. Both register the same three read-only tools as the MCP server.
+From a source checkout, link the local package instead with `omp install .`. OMP loads `packages/omp/extensions/maps.ts` through the package's `omp.extensions` manifest; Pi loads `packages/pi/extensions/maps.ts` the same way. Both register the same four read-only tools as the MCP server.
 
 ## AI SDK
 
-`@agntn/maps/ai` exports the same operations as Vercel AI SDK tools: `geocodeTool`, `reverseTool` and `providersTool`.
+`@agntn/maps/ai` exports the same operations as Vercel AI SDK tools: `geocodeTool`, `reverseTool`, `distanceTool` and `providersTool`.
 
 ## License
 

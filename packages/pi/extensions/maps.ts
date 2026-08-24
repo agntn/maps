@@ -119,6 +119,44 @@ export default function mapsExtension(pi: ExtensionAPI): void {
     },
   });
 
+  const pointSchema = (description: string) =>
+    Type.Object(
+      {
+        latitude: Type.Number({
+          description: "Latitude in decimal degrees",
+          minimum: -90,
+          maximum: 90,
+        }),
+        longitude: Type.Number({
+          description: "Longitude in decimal degrees",
+          minimum: -180,
+          maximum: 180,
+        }),
+      },
+      { description },
+    );
+
+  pi.registerTool({
+    name: "maps_distance",
+    label: "Maps Distance",
+    description:
+      "Great-circle distance in meters between two coordinate pairs (haversine, computed locally)",
+    promptSnippet: "Use maps_distance to measure how far apart two coordinate pairs are.",
+    promptGuidelines: [
+      "Use maps_distance with two latitude/longitude pairs; it computes locally without any network call.",
+      "maps_distance returns the great-circle distance in meters plus a human-readable form.",
+    ],
+    parameters: Type.Object({
+      from: pointSchema("Start point"),
+      to: pointSchema("End point"),
+    }),
+    async execute(_toolCallId, params): Promise<MapsToolResult> {
+      const lib = await loadLibrary();
+      const meters = lib.distanceBetween(params.from, params.to);
+      return textResult(`Distance: ${lib.formatDistance(meters)}`);
+    },
+  });
+
   pi.registerTool({
     name: "maps_providers",
     label: "Maps Providers",

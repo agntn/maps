@@ -16,6 +16,7 @@ const main = defineCommand({
   subCommands: {
     geocode: () => import("./commands/geocode.ts").then((m) => m.default),
     reverse: () => import("./commands/reverse.ts").then((m) => m.default),
+    distance: () => import("./commands/distance.ts").then((m) => m.default),
     providers: () => import("./commands/providers.ts").then((m) => m.default),
     mcp: () => import("./commands/mcp.ts").then((m) => m.default),
   },

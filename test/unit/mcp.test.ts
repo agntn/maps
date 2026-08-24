@@ -56,6 +56,7 @@ describe("Maps MCP server", () => {
       "maps_providers",
       "maps_geocode",
       "maps_reverse",
+      "maps_distance",
     ]);
 
     const response = await client.callTool({ name: "maps_providers", arguments: {} });
@@ -66,6 +67,38 @@ describe("Maps MCP server", () => {
         text: expect.stringContaining('"name": "openstreetmap"'),
       },
     ]);
+  });
+
+  it("computes a distance locally without any provider or network", async () => {
+    const client = await connectTestClient();
+
+    const response = await client.callTool({
+      name: "maps_distance",
+      arguments: {
+        from: { latitude: 0, longitude: 0 },
+        to: { latitude: 0, longitude: 1 },
+      },
+    });
+    expect(response.isError).not.toBe(true);
+    expect(response.content).toEqual([
+      {
+        type: "text",
+        text: expect.stringMatching(/"meters": 111195\.0\d+[\s\S]*"formatted": "111\.20 km/),
+      },
+    ]);
+  });
+
+  it("rejects an out-of-range distance point at the schema boundary", async () => {
+    const client = await connectTestClient();
+
+    const response = await client.callTool({
+      name: "maps_distance",
+      arguments: {
+        from: { latitude: 95, longitude: 0 },
+        to: { latitude: 0, longitude: 1 },
+      },
+    });
+    expect(response.isError).toBe(true);
   });
 
   it("rejects an out-of-range latitude at the schema boundary", async () => {

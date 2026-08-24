@@ -3,10 +3,13 @@
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 import type { GeoLocation } from "./core/types.ts";
+import { distanceBetween } from "./core/coordinates.ts";
+import { formatDistance } from "./core/format.ts";
 import { requireOperation } from "./core/provider.ts";
 import { providers } from "./core/registry.ts";
 import { selectProvider } from "./core/resolve.ts";
 import {
+  coordinatesInput,
   countryCodesInput,
   languageInput,
   latitudeInput,
@@ -61,6 +64,24 @@ export const reverseTool: Tool<
       provider: selected.name,
       location: await reverse(latitude, longitude, { language }),
     };
+  },
+});
+
+const distanceInputSchema = z.object({
+  from: coordinatesInput.describe("Start point"),
+  to: coordinatesInput.describe("End point"),
+});
+
+export const distanceTool: Tool<
+  z.infer<typeof distanceInputSchema>,
+  { meters: number; formatted: string }
+> = tool({
+  description:
+    "Great-circle distance in meters between two coordinate pairs (haversine, computed locally).",
+  inputSchema: distanceInputSchema,
+  execute: async ({ from, to }) => {
+    const meters = distanceBetween(from, to);
+    return { meters, formatted: formatDistance(meters) };
   },
 });
 

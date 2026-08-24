@@ -193,6 +193,52 @@ export default function mapsExtension(pi: ExtensionAPI): void {
     },
   });
 
+  const pointSchema = (description: string) =>
+    Type.Object(
+      {
+        latitude: Type.Number({
+          description: "Latitude in decimal degrees",
+          minimum: -90,
+          maximum: 90,
+        }),
+        longitude: Type.Number({
+          description: "Longitude in decimal degrees",
+          minimum: -180,
+          maximum: 180,
+        }),
+      },
+      { description },
+    );
+
+  const distanceParameters = Type.Object({
+    from: pointSchema("Start point"),
+    to: pointSchema("End point"),
+  });
+
+  pi.registerTool({
+    name: "maps_distance",
+    label: "Maps Distance",
+    description:
+      "Great-circle distance in meters between two coordinate pairs (haversine, computed locally).",
+    parameters: distanceParameters,
+    approval: "read",
+    renderCall(args, options, theme) {
+      const from = args.from as { latitude: number; longitude: number };
+      const to = args.to as { latitude: number; longitude: number };
+      return statusLine(
+        "Maps Distance",
+        `${from.latitude},${from.longitude} to ${to.latitude},${to.longitude}`,
+        options,
+        theme,
+      );
+    },
+    async execute(_toolCallId, params): Promise<MapsToolResult> {
+      const lib = await loadLibrary();
+      const meters = lib.distanceBetween(params.from, params.to);
+      return textResult(`Distance: ${lib.formatDistance(meters)}`);
+    },
+  });
+
   const providersParameters = Type.Object({});
 
   pi.registerTool({

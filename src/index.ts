@@ -14,11 +14,13 @@ export type {
 export { clampMaxResults } from "./core/types.ts";
 export {
   assertCoordinates,
+  distanceBetween,
   isValidCoordinates,
   isValidLatitude,
   isValidLongitude,
   parseCoordinates,
 } from "./core/coordinates.ts";
+export type { GeoPoint } from "./core/coordinates.ts";
 export { Provider, assertQuery, requireOperation } from "./core/provider.ts";
 export type { ProviderConstructor, ProviderOperation } from "./core/provider.ts";
 export {
@@ -39,6 +41,7 @@ export type { ProviderListing } from "./core/registry.ts";
 export { resolveProvider, selectProvider } from "./core/resolve.ts";
 export type { SelectedProvider } from "./core/resolve.ts";
 export {
+  formatDistance,
   formatLocation,
   formatLocationLine,
   formatLocations,

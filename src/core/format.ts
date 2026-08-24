@@ -34,6 +34,12 @@ export function formatLocations(
   return `[${providerName}] ${locations.length} matches for "${query}":\n${lines.join("\n")}`;
 }
 
+/** Human-readable distance: meters below one kilometer, kilometers with exact meters above. */
+export function formatDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(2)} km (${Math.round(meters)} m)`;
+}
+
 /** Multi-line listing of registered providers and what each can serve. */
 export function formatProviders(listings: ProviderListing[]): string {
   const lines = listings.map((listing) => {

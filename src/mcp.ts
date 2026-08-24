@@ -1,9 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { distanceBetween } from "./core/coordinates.ts";
+import { formatDistance } from "./core/format.ts";
 import { requireOperation } from "./core/provider.ts";
 import { listProviders } from "./core/registry.ts";
 import { selectProvider } from "./core/resolve.ts";
 import {
+  coordinatesInput,
   countryCodesInput,
   languageInput,
   latitudeInput,
@@ -74,6 +77,23 @@ export function createMcpServer(): McpServer {
       const selected = selectProvider(provider);
       const reverse = requireOperation(selected.provider, "reverse");
       return providerResult(selected.name, await reverse(latitude, longitude, { language }));
+    },
+  );
+
+  server.registerTool(
+    "maps_distance",
+    {
+      description:
+        "Great-circle distance in meters between two coordinate pairs (haversine, computed locally)",
+      inputSchema: {
+        from: coordinatesInput.describe("Start point"),
+        to: coordinatesInput.describe("End point"),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    ({ from, to }) => {
+      const meters = distanceBetween(from, to);
+      return result({ meters, formatted: formatDistance(meters) });
     },
   );
 

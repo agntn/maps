@@ -58,7 +58,12 @@ describe("maps OMP extension", () => {
     const { label, tools } = registerExtensionTools();
 
     expect(label).toBe("Maps");
-    expect([...tools.keys()]).toEqual(["maps_geocode", "maps_reverse", "maps_providers"]);
+    expect([...tools.keys()]).toEqual([
+      "maps_geocode",
+      "maps_reverse",
+      "maps_distance",
+      "maps_providers",
+    ]);
     for (const tool of tools.values()) expect(tool.approval).toBe("read");
   });
 
@@ -79,6 +84,15 @@ describe("maps OMP extension", () => {
     expect(accepts(tool, { latitude: 95, longitude: 21.01 })).toBe(false);
     expect(accepts(tool, { latitude: 52.23, longitude: 200 })).toBe(false);
     expect(accepts(tool, {})).toBe(false);
+  });
+
+  it("requires both distance points and bounds their ranges", () => {
+    const tool = requireTool(registerExtensionTools().tools, "maps_distance");
+
+    const from = { latitude: 0, longitude: 0 };
+    expect(accepts(tool, { from, to: { latitude: 0, longitude: 1 } })).toBe(true);
+    expect(accepts(tool, { from })).toBe(false);
+    expect(accepts(tool, { from, to: { latitude: 95, longitude: 1 } })).toBe(false);
   });
 
   it("strips terminal control sequences at the render boundary", () => {

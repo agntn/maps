@@ -2,7 +2,7 @@
 
 ## Scope
 
-Unified geocoding provider library. Normalizes forward geocoding (address or place to WGS 84 coordinates) and reverse geocoding (coordinates to place) across providers, with coordinate validation in core. Exports a CLI (`maps` binary), a programmatic API, an MCP server (`@agntn/maps/mcp`), Vercel AI SDK tools (`@agntn/maps/ai`), and Pi/OMP extensions.
+Unified geocoding provider library. Normalizes forward geocoding (address or place to WGS 84 coordinates) and reverse geocoding (coordinates to place) across providers, with coordinate validation and local great-circle distance (haversine) in core. Exports a CLI (`maps` binary), a programmatic API, an MCP server (`@agntn/maps/mcp`), Vercel AI SDK tools (`@agntn/maps/ai`), and Pi/OMP extensions.
 
 ## Providers
 
@@ -36,7 +36,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 ## Key files
 
 - `src/core/types.ts` - GeoLocation, GeoAddress, BoundingBox, options, capabilities, config, `clampMaxResults`, `compactAddress`
-- `src/core/coordinates.ts` - WGS 84 validation and `parseCoordinates("lat,lon")`
+- `src/core/coordinates.ts` - WGS 84 validation, `parseCoordinates("lat,lon")`, `distanceBetween` (haversine, IUGG mean radius, no network)
 - `src/core/provider.ts` - abstract `Provider` base class (`geocode`, `reverse`); `requireOperation()` capability gate
 - `src/core/errors.ts` - error hierarchy + `normalizeError` + URL sanitization
 - `src/core/registry.ts` - self-registering provider registry (register, create, providers, has, getDefaultURL, listProviders)
@@ -45,14 +45,14 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - `src/core/schemas.ts` - zod input fragments shared by the MCP server and the AI tools
 - `src/core/client.ts` - ofetch wrapper (15 s timeout, no retry, identifying User-Agent), `buildQuery`
 - `src/providers/*.ts` - one file per provider, self-registering via `register()`
-- `src/mcp.ts` - `createMcpServer()`, three read-only tools with a capability gate
+- `src/mcp.ts` - `createMcpServer()`, four read-only tools (`maps_distance` computes locally, no provider)
 - `src/ai.ts` - Vercel AI SDK tool surface
 - `src/cli.ts` + `src/commands/*.ts` - citty CLI (lazy subcommands; provider selection via `selectProvider()` from core)
 - `packages/pi/extensions/maps.ts`, `packages/omp/extensions/maps.ts` - agent extensions; type-import from `dist/index.d.mts`. The OMP loader keeps both dynamic imports literal: `existsSync(src)` chooses `import("../../../src/index.ts")` or `import("../../../dist/index.mjs")`. An `import(url.href)` loses `ofetch` resolution in the compiled binary
 
 ## CLI subcommands
 
-`geocode`, `reverse`, `providers`, `mcp` - data commands support `-p` (provider) and `-l` (language); `geocode` adds `-n` (limit) and `--country` (comma-separated ISO codes). `reverse` takes one positional `"latitude,longitude"`; a pair starting with a minus needs a `--` separator first, because the argument parser would read it as a flag.
+`geocode`, `reverse`, `distance`, `providers`, `mcp` - provider commands support `-p` (provider) and `-l` (language); `geocode` adds `-n` (limit) and `--country` (comma-separated ISO codes); `distance` is local-only. `reverse` and `distance` take positional `"latitude,longitude"` pairs; a pair starting with a minus needs a `--` separator first, because the argument parser would read it as a flag.
 
 ## Constraints
 

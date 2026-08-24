@@ -28,7 +28,12 @@ describe("maps Pi extension", () => {
   it("registers the complete tool set", () => {
     const tools = registerExtensionTools();
 
-    expect([...tools.keys()]).toEqual(["maps_geocode", "maps_reverse", "maps_providers"]);
+    expect([...tools.keys()]).toEqual([
+      "maps_geocode",
+      "maps_reverse",
+      "maps_distance",
+      "maps_providers",
+    ]);
   });
 
   it("names each tool in every prompt guideline", () => {
@@ -59,6 +64,20 @@ describe("maps Pi extension", () => {
     expect(Value.Check(tool.parameters, { latitude: 95, longitude: 21.01 })).toBe(false);
     expect(Value.Check(tool.parameters, { latitude: 52.23, longitude: 200 })).toBe(false);
     expect(Value.Check(tool.parameters, { latitude: 52.23 })).toBe(false);
+  });
+
+  it("computes a distance locally without network access", async () => {
+    const tool = requireTool(registerExtensionTools(), "maps_distance");
+
+    const result = await tool.execute(
+      "test",
+      { from: { latitude: 0, longitude: 0 }, to: { latitude: 0, longitude: 1 } },
+      undefined,
+      undefined,
+      unusedContext,
+    );
+
+    expect(result.content).toEqual([{ type: "text", text: "Distance: 111.20 km (111195 m)" }]);
   });
 
   it("lists providers without model or network access", async () => {

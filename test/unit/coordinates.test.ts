@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertCoordinates,
+  distanceBetween,
   isValidCoordinates,
   isValidLatitude,
   isValidLongitude,
@@ -45,6 +46,45 @@ describe("coordinate validation", () => {
     } catch (error) {
       expect(error).toMatchObject({ name: "InvalidInputError", provider: "openstreetmap" });
     }
+  });
+});
+
+describe("distanceBetween", () => {
+  const warsaw = { latitude: 52.2297, longitude: 21.0122 };
+  const krakow = { latitude: 50.0647, longitude: 19.945 };
+
+  it("measures one degree along the equator as ~111.195 km", () => {
+    const meters = distanceBetween({ latitude: 0, longitude: 0 }, { latitude: 0, longitude: 1 });
+    expect(meters).toBeCloseTo(111195.08, 0);
+  });
+
+  it("measures one degree along a meridian identically", () => {
+    const meters = distanceBetween({ latitude: 0, longitude: 0 }, { latitude: 1, longitude: 0 });
+    expect(meters).toBeCloseTo(111195.08, 0);
+  });
+
+  /** Expected value cross-checked with an independent spherical-law-of-cosines implementation. */
+  it("matches an independent implementation for Warsaw to Krakow", () => {
+    expect(distanceBetween(warsaw, krakow)).toBeCloseTo(251976.9, 0);
+  });
+
+  it("is symmetric and zero for identical points", () => {
+    expect(distanceBetween(warsaw, krakow)).toBe(distanceBetween(krakow, warsaw));
+    expect(distanceBetween(warsaw, warsaw)).toBe(0);
+  });
+
+  it("handles antipodal points on the equator", () => {
+    const meters = distanceBetween({ latitude: 0, longitude: 0 }, { latitude: 0, longitude: 180 });
+    expect(meters).toBeCloseTo(20015114.4, 0);
+  });
+
+  it("rejects out-of-range points before computing", () => {
+    expect(() => distanceBetween({ latitude: 91, longitude: 0 }, warsaw)).toThrow(
+      InvalidInputError,
+    );
+    expect(() => distanceBetween(warsaw, { latitude: 0, longitude: 181 })).toThrow(
+      InvalidInputError,
+    );
   });
 });
 

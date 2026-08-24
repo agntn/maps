@@ -41,6 +41,12 @@ export const languageInput = z
   .optional()
   .describe("Preferred language for result names (BCP 47, for example 'pl')");
 
+/** One coordinate pair, reusable for distance endpoints. */
+export const coordinatesInput = z.object({
+  latitude: latitudeInput,
+  longitude: longitudeInput,
+});
+
 /** Country filter for forward geocoding. */
 export const countryCodesInput = z
   .array(z.string().trim().length(2))
