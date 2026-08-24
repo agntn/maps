@@ -50,6 +50,9 @@
     "typecheck": "tsc --noEmit && pnpm build && tsc --noEmit -p tsconfig.extensions.json",
     "test": "vitest --run",
     "test:watch": "vitest",
+    "test:cli": "pnpm build && node test/eval-cli.mjs",
+    "test:mcp": "pnpm build && node test/eval-mcp.mjs",
+    "test:packed": "node test/eval-packed.mjs",
     "prepack": "pnpm run build",
     "release": "pnpm test && pnpm build && changelogen --release --push"
   },

@@ -1,0 +1,127 @@
+/**
+ * CLI subprocess gate: every subcommand exercised end to end against the built binary.
+ *
+ * Runs the error paths and local commands offline; three live Nominatim calls (spaced past the
+ * 1 req/s policy) prove the network path. Set MAPS_EVAL_OFFLINE=1 to skip the live block.
+ */
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const CLI = fileURLToPath(new URL("../dist/cli.mjs", import.meta.url));
+const LIVE = process.env.MAPS_EVAL_OFFLINE !== "1";
+
+/** Credentials are dropped so provider auto-selection stays deterministic. */
+const env = { ...process.env };
+delete env.GOOGLE_MAPS_API_KEY;
+
+let failures = 0;
+
+function run(args) {
+  return spawnSync("node", [CLI, ...args], { encoding: "utf8", env, timeout: 30_000 });
+}
+
+function check(name, ok, detail = "") {
+  console.log(`${ok ? "ok" : "FAIL"} - ${name}`);
+  if (!ok) {
+    failures += 1;
+    if (detail) console.log(String(detail).slice(0, 400));
+  }
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const providers = run(["providers"]);
+check("providers exits 0", providers.status === 0, providers.stderr);
+check(
+  "providers lists both backends and the missing-key hint",
+  providers.stdout.includes("openstreetmap") && providers.stdout.includes("requires API key"),
+  providers.stdout,
+);
+
+const distance = run(["distance", "52.2297,21.0122", "50.0647,19.9450"]);
+check("distance exits 0", distance.status === 0, distance.stderr);
+check(
+  "distance reports kilometers and bearing",
+  distance.stdout.includes("251.98 km") && distance.stdout.includes("Bearing: 197.6°"),
+  distance.stdout,
+);
+
+const badDistance = run(["distance", "91,0", "0,0"]);
+check(
+  "distance rejects an out-of-range latitude",
+  badDistance.status === 1 && badDistance.stderr.includes("latitude must be"),
+  badDistance.stderr,
+);
+
+const badPair = run(["reverse", "52.23"]);
+check(
+  "reverse rejects a malformed pair",
+  badPair.status === 1 && badPair.stderr.includes('Expected "latitude,longitude"'),
+  badPair.stderr,
+);
+
+const unknown = run(["geocode", "Warsaw", "-p", "missing"]);
+check(
+  "geocode rejects an unknown provider",
+  unknown.status === 1 && unknown.stderr.includes("Unknown provider: missing"),
+  unknown.stderr,
+);
+
+const keyless = run(["geocode", "Warsaw", "-p", "googlemaps"]);
+check(
+  "googlemaps without a key fails with a clean auth message",
+  keyless.status === 1 && keyless.stderr.includes("GOOGLE_MAPS_API_KEY"),
+  keyless.stderr,
+);
+
+const emptyAddress = run(["address"]);
+check(
+  "address rejects an all-empty input",
+  emptyAddress.status === 1 && emptyAddress.stderr.includes("at least one non-empty field"),
+  emptyAddress.stderr,
+);
+
+for (const sub of ["geocode", "address", "reverse", "distance", "providers"]) {
+  const help = run([sub, "--help"]);
+  check(`${sub} --help exits 0`, help.status === 0, help.stderr);
+}
+
+if (LIVE) {
+  const geocode = run(["geocode", "Pałac Kultury i Nauki, Warszawa", "-n", "1"]);
+  check(
+    "live geocode finds the palace",
+    geocode.status === 0 && geocode.stdout.includes("52.2317657"),
+    geocode.stdout || geocode.stderr,
+  );
+  await sleep(1100);
+  const reverse = run(["reverse", "52.2318,21.0067"]);
+  check(
+    "live reverse names the place",
+    reverse.status === 0 && reverse.stdout.includes("Plac Defilad"),
+    reverse.stdout || reverse.stderr,
+  );
+  await sleep(1100);
+  const address = run([
+    "address",
+    "--road",
+    "Złota",
+    "--house",
+    "44",
+    "--city",
+    "Warszawa",
+    "-n",
+    "1",
+  ]);
+  check(
+    "live structured address finds the tower",
+    address.status === 0 && address.stdout.includes("52.2312136"),
+    address.stdout || address.stderr,
+  );
+} else {
+  console.log("skip - live checks disabled via MAPS_EVAL_OFFLINE=1");
+}
+
+console.log(
+  failures === 0 ? "eval-cli: all checks passed" : `eval-cli: ${failures} check(s) failed`,
+);
+process.exit(failures === 0 ? 0 : 1);

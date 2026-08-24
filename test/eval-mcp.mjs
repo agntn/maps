@@ -1,0 +1,150 @@
+/**
+ * MCP subprocess gate: the built stdio server exercised through a real client transport.
+ *
+ * Runs with DEBUG=1 on purpose - the handshake fails outright if anything pollutes stdout, and a
+ * separate raw spawn asserts every stdout line parses as JSON. Set MAPS_EVAL_OFFLINE=1 to skip
+ * the one live geocode.
+ */
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+
+const CLI = fileURLToPath(new URL("../dist/cli.mjs", import.meta.url));
+const LIVE = process.env.MAPS_EVAL_OFFLINE !== "1";
+
+/** Credentials are dropped so provider auto-selection stays deterministic. */
+const env = { ...process.env, DEBUG: "1" };
+delete env.GOOGLE_MAPS_API_KEY;
+
+let failures = 0;
+
+function check(name, ok, detail = "") {
+  console.log(`${ok ? "ok" : "FAIL"} - ${name}`);
+  if (!ok) {
+    failures += 1;
+    if (detail) console.log(String(detail).slice(0, 400));
+  }
+}
+
+function firstText(response) {
+  return response.content?.[0]?.text ?? "";
+}
+
+const proc = spawn("node", [CLI, "mcp"], { env, stdio: ["pipe", "pipe", "pipe"] });
+proc.stdin.write(
+  `${JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: {
+      protocolVersion: "2024-11-05",
+      capabilities: {},
+      clientInfo: { name: "purity", version: "0" },
+    },
+  })}\n`,
+);
+const rawStdout = await new Promise((resolve) => {
+  let output = "";
+  const finish = () => {
+    proc.kill();
+    resolve(output);
+  };
+  proc.stdout.on("data", (chunk) => {
+    output += String(chunk);
+    if (output.includes("\n")) finish();
+  });
+  setTimeout(finish, 10_000);
+});
+const rawLines = rawStdout.trim().split("\n").filter(Boolean);
+check(
+  "stdout carries only JSON-RPC frames under DEBUG=1",
+  rawLines.length > 0 &&
+    rawLines.every((line) => {
+      try {
+        JSON.parse(line);
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  rawStdout,
+);
+
+const transport = new StdioClientTransport({ command: "node", args: [CLI, "mcp"], env });
+const client = new Client({ name: "maps-eval", version: "1.0.0" });
+await client.connect(transport);
+
+const listed = await client.listTools();
+check(
+  "lists the five maps tools",
+  JSON.stringify(listed.tools.map((tool) => tool.name)) ===
+    JSON.stringify([
+      "maps_providers",
+      "maps_geocode",
+      "maps_geocode_address",
+      "maps_reverse",
+      "maps_distance",
+    ]),
+  JSON.stringify(listed.tools.map((tool) => tool.name)),
+);
+
+const providers = await client.callTool({ name: "maps_providers", arguments: {} });
+check(
+  "providers reports the unconfigured backend",
+  providers.isError !== true &&
+    firstText(providers).includes("openstreetmap") &&
+    firstText(providers).includes("requiresConfiguration"),
+  firstText(providers),
+);
+
+const distance = await client.callTool({
+  name: "maps_distance",
+  arguments: { from: { latitude: 0, longitude: 0 }, to: { latitude: 0, longitude: 1 } },
+});
+check(
+  "distance returns meters and bearing",
+  distance.isError !== true &&
+    firstText(distance).includes('"meters": 111195.0') &&
+    firstText(distance).includes('"bearing": 90'),
+  firstText(distance),
+);
+
+const outOfRange = await client.callTool({
+  name: "maps_reverse",
+  arguments: { latitude: 95, longitude: 21 },
+});
+check("schema rejects latitude 95", outOfRange.isError === true, firstText(outOfRange));
+
+const unknown = await client.callTool({
+  name: "maps_geocode",
+  arguments: { query: "Warsaw", provider: "missing" },
+});
+check(
+  "unknown provider surfaces as a tool error",
+  unknown.isError === true && firstText(unknown).includes("Unknown provider: missing"),
+  firstText(unknown),
+);
+
+if (LIVE) {
+  const geocode = await client.callTool({
+    name: "maps_geocode",
+    arguments: { query: "Pałac Kultury i Nauki, Warszawa", limit: 1 },
+  });
+  check(
+    "live geocode answers with the provider name and coordinates",
+    geocode.isError !== true &&
+      firstText(geocode).includes('"provider": "openstreetmap"') &&
+      firstText(geocode).includes('"latitude"'),
+    firstText(geocode),
+  );
+} else {
+  console.log("skip - live check disabled via MAPS_EVAL_OFFLINE=1");
+}
+
+await client.close();
+
+console.log(
+  failures === 0 ? "eval-mcp: all checks passed" : `eval-mcp: ${failures} check(s) failed`,
+);
+process.exit(failures === 0 ? 0 : 1);

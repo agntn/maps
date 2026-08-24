@@ -70,7 +70,13 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 `pnpm test` (vitest, 8 files / 83 tests, all mocked via `vi.stubGlobal("fetch", ...)`). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
 
-Packed-layout gate (manual): `pnpm pack`, install the tarball with `npm install --legacy-peer-deps` in an empty dir, register a custom provider through the main entry and confirm `maps_providers` from `@agntn/maps/mcp` lists it - this catches registry chunk splits, missing deps and broken `files`.
+Subprocess gates in `test/eval-*.mjs`, each runnable on its own:
+
+- `pnpm test:cli` - every subcommand spawned against the built binary: exit codes, error messages, help screens, three live Nominatim calls spaced past the 1 req/s policy
+- `pnpm test:mcp` - the built stdio server through a real `StdioClientTransport` with `DEBUG=1`, plus a raw spawn asserting stdout carries only JSON-RPC frames
+- `pnpm test:packed` - `pnpm pack`, tarball installed with `npm install --legacy-peer-deps` in a temp dir, a provider registered through the main entry read back through the `/mcp` entry (catches registry chunk splits, missing deps and broken `files`), and the packed CLI smoke
+
+`MAPS_EVAL_OFFLINE=1` skips the live calls in the first two; `MAPS_EVAL_KEEP=1` keeps the packed temp install for inspection.
 
 ## Build & scripts
 
