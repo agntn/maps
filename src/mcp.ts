@@ -10,6 +10,7 @@ import {
   addressInput,
   coordinatesInput,
   countryCodesInput,
+  granularityInput,
   languageInput,
   latitudeInput,
   limitInput,
@@ -100,17 +101,19 @@ export function createMcpServer(): McpServer {
         latitude: latitudeInput,
         longitude: longitudeInput,
         language: languageInput,
+        granularity: granularityInput,
         ...providerInput,
       },
       annotations: { readOnlyHint: true },
     },
-    async ({ latitude, longitude, language, provider }) => {
+    async ({ latitude, longitude, language, granularity, provider }) => {
+      const options = { language, granularity };
       if (isAllProviders(provider)) {
-        return result(serializeOutcomes(await reverseAll(latitude, longitude, { language })));
+        return result(serializeOutcomes(await reverseAll(latitude, longitude, options)));
       }
       const selected = selectProvider(provider);
       const reverse = requireOperation(selected.provider, "reverse");
-      return providerResult(selected.name, await reverse(latitude, longitude, { language }));
+      return providerResult(selected.name, await reverse(latitude, longitude, options));
     },
   );
 

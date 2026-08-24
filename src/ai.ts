@@ -14,6 +14,7 @@ import {
   addressInput,
   coordinatesInput,
   countryCodesInput,
+  granularityInput,
   languageInput,
   latitudeInput,
   limitInput,
@@ -35,6 +36,7 @@ const reverseInputSchema = z.object({
   latitude: latitudeInput,
   longitude: longitudeInput,
   language: languageInput,
+  granularity: granularityInput,
   ...providerInput,
 });
 
@@ -107,15 +109,16 @@ export const reverseTool: Tool<z.infer<typeof reverseInputSchema>, ReverseToolOu
   description:
     "Resolve a latitude/longitude pair to the place at or nearest to it. Pass provider 'all' to compare every provider.",
   inputSchema: reverseInputSchema,
-  execute: async ({ latitude, longitude, language, provider }) => {
+  execute: async ({ latitude, longitude, language, granularity, provider }) => {
+    const options = { language, granularity };
     if (isAllProviders(provider)) {
-      return { comparison: serializeOutcomes(await reverseAll(latitude, longitude, { language })) };
+      return { comparison: serializeOutcomes(await reverseAll(latitude, longitude, options)) };
     }
     const selected = selectProvider(provider);
     const reverse = requireOperation(selected.provider, "reverse");
     return {
       provider: selected.name,
-      location: await reverse(latitude, longitude, { language }),
+      location: await reverse(latitude, longitude, options),
     };
   },
 });

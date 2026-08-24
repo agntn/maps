@@ -59,6 +59,12 @@ export const addressInput = {
   country: z.string().trim().min(1).optional().describe("Country name or ISO code"),
 };
 
+/** Reverse-result granularity; omitted means the most detailed result available. */
+export const granularityInput = z
+  .enum(["country", "state", "city", "street", "building"])
+  .optional()
+  .describe("How coarse the reverse result should be; omit for the most detailed one");
+
 /** One coordinate pair, reusable for distance endpoints. */
 export const coordinatesInput = z.object({
   latitude: latitudeInput,

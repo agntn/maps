@@ -176,6 +176,14 @@ describe("googlemaps provider", () => {
     expect(location).toMatchObject({ displayName: "Warsaw, Poland", countryCode: "pl" });
   });
 
+  it("maps granularity onto the result_type filter", async () => {
+    const fetch = stubJSON({ status: "OK", results: [WARSAW_RESULT] });
+
+    await createConfigured().reverse(52.2297, 21.0122, { granularity: "city" });
+
+    expect(String(fetch.mock.calls[0]?.[0])).toContain("result_type=locality");
+  });
+
   it("turns an empty reverse response into NotFoundError", async () => {
     stubJSON({ status: "ZERO_RESULTS", results: [] });
 

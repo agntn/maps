@@ -63,10 +63,21 @@ export interface GeocodeOptions {
   language?: string;
 }
 
+/** Result granularity accepted by reverse geocoding, coarsest first. */
+export const REVERSE_GRANULARITIES = ["country", "state", "city", "street", "building"] as const;
+
+/** One entry of `REVERSE_GRANULARITIES`. */
+export type ReverseGranularity = (typeof REVERSE_GRANULARITIES)[number];
+
 /** Options for reverse geocoding (coordinates to place). */
 export interface ReverseOptions {
   /** Preferred language for result names (BCP 47, for example "pl") */
   language?: string;
+  /**
+   * How coarse the answer should be, for example "city" turns a rooftop hit into the city that
+   * contains it. Defaults to the most detailed result the provider has.
+   */
+  granularity?: ReverseGranularity;
 }
 
 /** Feature flags for operations available on a provider at runtime. */

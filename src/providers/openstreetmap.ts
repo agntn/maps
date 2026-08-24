@@ -25,6 +25,15 @@ import { clampMaxResults, compactAddress } from "../core/types.ts";
 
 const MAX_RESULTS = 40;
 
+/** Granularity to Nominatim reverse `zoom`, per its documented level table. */
+const GRANULARITY_ZOOM = {
+  country: 3,
+  state: 5,
+  city: 10,
+  street: 16,
+  building: 18,
+} as const;
+
 interface NominatimAddress {
   house_number?: string;
   road?: string;
@@ -146,6 +155,7 @@ class OpenStreetMap extends Provider {
       format: "jsonv2",
       addressdetails: 1,
       "accept-language": options?.language,
+      zoom: options?.granularity ? GRANULARITY_ZOOM[options.granularity] : undefined,
     })}`;
     const data = await this.getJSON<NominatimPlace>(url);
     if (data.error) {

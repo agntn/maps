@@ -6,6 +6,8 @@ import { parseCoordinates } from "../core/coordinates.ts";
 import { formatLocation, formatReverseAll } from "../core/format.ts";
 import { requireOperation } from "../core/provider.ts";
 import { isAllProviders, selectProvider } from "../core/resolve.ts";
+import { REVERSE_GRANULARITIES } from "../core/types.ts";
+import type { ReverseGranularity } from "../core/types.ts";
 
 export default defineCommand({
   meta: {
@@ -29,18 +31,36 @@ export default defineCommand({
       alias: "l",
       description: "Preferred language for result names (BCP 47)",
     },
+    granularity: {
+      type: "string",
+      alias: "g",
+      description: `Result granularity: ${REVERSE_GRANULARITIES.join(", ")}`,
+    },
   },
   async run({ args }) {
     try {
+      if (
+        args.granularity !== undefined &&
+        !REVERSE_GRANULARITIES.includes(args.granularity as ReverseGranularity)
+      ) {
+        consola.error(
+          `Invalid granularity: ${args.granularity} (use ${REVERSE_GRANULARITIES.join(", ")})`,
+        );
+        process.exit(1);
+      }
+      const options = {
+        language: args.language,
+        granularity: args.granularity as ReverseGranularity | undefined,
+      };
       const { latitude, longitude } = parseCoordinates(args.coordinates);
       if (isAllProviders(args.provider)) {
-        const outcomes = await reverseAll(latitude, longitude, { language: args.language });
+        const outcomes = await reverseAll(latitude, longitude, options);
         consola.log(formatReverseAll(outcomes));
         return;
       }
       const { name, provider } = selectProvider(args.provider);
       const reverse = requireOperation(provider, "reverse");
-      const location = await reverse(latitude, longitude, { language: args.language });
+      const location = await reverse(latitude, longitude, options);
       consola.log(formatLocation(name, location));
     } catch (error) {
       consola.error(`Error: ${error instanceof Error ? error.message : error}`);

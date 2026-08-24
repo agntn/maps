@@ -180,6 +180,18 @@ export default function mapsExtension(pi: ExtensionAPI): void {
           minLength: 1,
         }),
       ),
+      granularity: Type.Optional(
+        Type.Union(
+          [
+            Type.Literal("country"),
+            Type.Literal("state"),
+            Type.Literal("city"),
+            Type.Literal("street"),
+            Type.Literal("building"),
+          ],
+          { description: "How coarse the reverse result should be" },
+        ),
+      ),
       provider: Type.Optional(
         Type.String({
           description: "Provider, or 'all' to compare every provider",
@@ -189,17 +201,14 @@ export default function mapsExtension(pi: ExtensionAPI): void {
     }),
     async execute(_toolCallId, params): Promise<MapsToolResult> {
       const lib = await loadLibrary();
+      const options = { language: params.language, granularity: params.granularity };
       if (lib.isAllProviders(params.provider)) {
-        const outcomes = await lib.reverseAll(params.latitude, params.longitude, {
-          language: params.language,
-        });
+        const outcomes = await lib.reverseAll(params.latitude, params.longitude, options);
         return textResult(lib.formatReverseAll(outcomes));
       }
       const { name, provider } = lib.selectProvider(params.provider);
       const reverse = lib.requireOperation(provider, "reverse");
-      const location = await reverse(params.latitude, params.longitude, {
-        language: params.language,
-      });
+      const location = await reverse(params.latitude, params.longitude, options);
       return textResult(lib.formatLocation(name, location));
     },
   });

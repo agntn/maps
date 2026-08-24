@@ -152,6 +152,14 @@ describe("openstreetmap provider", () => {
     });
   });
 
+  it("maps granularity onto the Nominatim zoom param", async () => {
+    const fetch = stubJSON(PALACE);
+
+    await create("openstreetmap").reverse(52.2318, 21.0067, { granularity: "city" });
+
+    expect(String(fetch.mock.calls[0]?.[0])).toContain("zoom=10");
+  });
+
   it("turns the in-body reverse error into NotFoundError", async () => {
     stubJSON({ error: "Unable to geocode" });
 

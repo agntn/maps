@@ -9,9 +9,10 @@ export type {
   GeocodeOptions,
   ProviderCapabilities,
   ProviderConfig,
+  ReverseGranularity,
   ReverseOptions,
 } from "./core/types.ts";
-export { clampMaxResults } from "./core/types.ts";
+export { REVERSE_GRANULARITIES, clampMaxResults } from "./core/types.ts";
 export {
   assertCoordinates,
   bearingBetween,

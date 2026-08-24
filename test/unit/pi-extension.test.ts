@@ -71,6 +71,14 @@ describe("maps Pi extension", () => {
     expect(Value.Check(tool.parameters, { latitude: 52.23 })).toBe(false);
   });
 
+  it("accepts only the named reverse granularities", () => {
+    const tool = requireTool(registerExtensionTools(), "maps_reverse");
+
+    const point = { latitude: 52.23, longitude: 21.01 };
+    expect(Value.Check(tool.parameters, { ...point, granularity: "city" })).toBe(true);
+    expect(Value.Check(tool.parameters, { ...point, granularity: "block" })).toBe(false);
+  });
+
   it("compares providers side by side when provider is 'all'", async () => {
     stubJSON([{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska" }]);
     const tool = requireTool(registerExtensionTools(), "maps_geocode");

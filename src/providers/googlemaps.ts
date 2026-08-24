@@ -34,6 +34,15 @@ import { clampMaxResults, compactAddress } from "../core/types.ts";
 /** The response is not paginated; the client slices locally. */
 const MAX_RESULTS = 20;
 
+/** Granularity to the reverse `result_type` filter of the Geocoding API. */
+const GRANULARITY_RESULT_TYPE = {
+  country: "country",
+  state: "administrative_area_level_1",
+  city: "locality",
+  street: "route",
+  building: "street_address",
+} as const;
+
 interface GoogleLatLng {
   lat?: number;
   lng?: number;
@@ -200,6 +209,7 @@ class GoogleMaps extends Provider {
     const results = await this.fetchResults({
       latlng: `${latitude},${longitude}`,
       language: options?.language,
+      result_type: options?.granularity ? GRANULARITY_RESULT_TYPE[options.granularity] : undefined,
     });
     for (const raw of results) {
       const location = mapResult(raw);
