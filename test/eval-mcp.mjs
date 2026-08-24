@@ -144,6 +144,27 @@ if (LIVE) {
 
 await client.close();
 
+if (LIVE) {
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  const dummyTransport = new StdioClientTransport({
+    command: "node",
+    args: [CLI, "mcp"],
+    env: { ...env, GOOGLE_MAPS_API_KEY: "dummy" },
+  });
+  const dummyClient = new Client({ name: "maps-eval-fallback", version: "1.0.0" });
+  await dummyClient.connect(dummyTransport);
+  const fallback = await dummyClient.callTool({
+    name: "maps_geocode",
+    arguments: { query: "Rynek, Wrocław", limit: 1 },
+  });
+  check(
+    "a dummy Google key falls back to openstreetmap through the server",
+    fallback.isError !== true && firstText(fallback).includes('"provider": "openstreetmap"'),
+    firstText(fallback),
+  );
+  await dummyClient.close();
+}
+
 console.log(
   failures === 0 ? "eval-mcp: all checks passed" : `eval-mcp: ${failures} check(s) failed`,
 );

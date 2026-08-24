@@ -16,8 +16,12 @@ delete env.GOOGLE_MAPS_API_KEY;
 
 let failures = 0;
 
-function run(args) {
-  return spawnSync("node", [CLI, ...args], { encoding: "utf8", env, timeout: 30_000 });
+function run(args, extraEnv = {}) {
+  return spawnSync("node", [CLI, ...args], {
+    encoding: "utf8",
+    env: { ...env, ...extraEnv },
+    timeout: 30_000,
+  });
 }
 
 function check(name, ok, detail = "") {
@@ -81,6 +85,13 @@ check(
   emptyAddress.stderr,
 );
 
+const badGranularity = run(["reverse", "52.23,21.01", "-g", "block"]);
+check(
+  "reverse rejects an unknown granularity",
+  badGranularity.status === 1 && badGranularity.stderr.includes("Invalid granularity"),
+  badGranularity.stderr,
+);
+
 for (const sub of ["geocode", "address", "reverse", "distance", "providers"]) {
   const help = run([sub, "--help"]);
   check(`${sub} --help exits 0`, help.status === 0, help.stderr);
@@ -116,6 +127,24 @@ if (LIVE) {
     "live structured address finds the tower",
     address.status === 0 && address.stdout.includes("52.2312136"),
     address.stdout || address.stderr,
+  );
+  await sleep(1100);
+  const coarse = run(["reverse", "52.2318,21.0067", "-g", "city"]);
+  check(
+    "live city granularity answers with the city boundary",
+    coarse.status === 0 &&
+      coarse.stdout.includes("Warszawa") &&
+      !coarse.stdout.includes("Plac Defilad"),
+    coarse.stdout || coarse.stderr,
+  );
+  await sleep(1100);
+  const fallback = run(["geocode", "Rynek, Wrocław", "-n", "1"], {
+    GOOGLE_MAPS_API_KEY: "dummy",
+  });
+  check(
+    "a dummy Google key falls back to openstreetmap on the real REQUEST_DENIED",
+    fallback.status === 0 && fallback.stdout.includes("[openstreetmap]"),
+    fallback.stdout || fallback.stderr,
   );
 } else {
   console.log("skip - live checks disabled via MAPS_EVAL_OFFLINE=1");
