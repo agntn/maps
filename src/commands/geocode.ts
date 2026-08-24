@@ -52,7 +52,10 @@ export default defineCommand({
       const locations = await geocode(args.query, {
         limit,
         language: args.language,
-        countryCodes: args.country?.split(",").map((code) => code.trim()),
+        countryCodes: args.country
+          ?.split(",")
+          .map((code) => code.trim())
+          .filter((code) => code !== ""),
       });
       consola.log(formatLocations(name, args.query, locations));
     } catch (error) {
