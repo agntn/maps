@@ -1,9 +1,10 @@
 /** Resolve an address or place to coordinates */
 import { defineCommand } from "citty";
 import consola from "consola";
-import { formatLocations } from "../core/format.ts";
+import { geocodeAll } from "../core/all.ts";
+import { formatGeocodeAll, formatLocations } from "../core/format.ts";
 import { requireOperation } from "../core/provider.ts";
-import { selectProvider } from "../core/resolve.ts";
+import { isAllProviders, selectProvider } from "../core/resolve.ts";
 
 export default defineCommand({
   meta: {
@@ -19,7 +20,7 @@ export default defineCommand({
     provider: {
       type: "string",
       alias: "p",
-      description: "Provider",
+      description: 'Provider, or "all" to compare every provider',
     },
     limit: {
       type: "string",
@@ -47,17 +48,21 @@ export default defineCommand({
         }
       }
 
-      const { name, provider } = selectProvider(args.provider);
-      const geocode = requireOperation(provider, "geocode");
-      const locations = await geocode(args.query, {
+      const options = {
         limit,
         language: args.language,
         countryCodes: args.country
           ?.split(",")
           .map((code) => code.trim())
           .filter((code) => code !== ""),
-      });
-      consola.log(formatLocations(name, args.query, locations));
+      };
+      if (isAllProviders(args.provider)) {
+        consola.log(formatGeocodeAll(args.query, await geocodeAll(args.query, options)));
+        return;
+      }
+      const { name, provider } = selectProvider(args.provider);
+      const geocode = requireOperation(provider, "geocode");
+      consola.log(formatLocations(name, args.query, await geocode(args.query, options)));
     } catch (error) {
       consola.error(`Error: ${error instanceof Error ? error.message : error}`);
       process.exit(1);

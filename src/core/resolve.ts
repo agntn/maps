@@ -10,6 +10,14 @@ const ENV_MAP: Record<string, string> = {
 };
 
 /**
+ * Check for the reserved "all" provider value, which fans a request out to every registered
+ * provider instead of selecting one. Surfaces test this before calling `selectProvider`.
+ */
+export function isAllProviders(preferred?: string): boolean {
+  return preferred?.trim().toLowerCase() === "all";
+}
+
+/**
  * Choose a registered provider for the current environment.
  *
  * An explicit preference wins. Without one, a provider with configured credentials is selected

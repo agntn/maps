@@ -4,7 +4,12 @@ import { z } from "zod";
 
 /** Optional provider selector; empty-like strings are rejected before selection. */
 export const providerInput = {
-  provider: z.string().trim().min(1).optional().describe("Maps provider key"),
+  provider: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe("Maps provider key, or 'all' to query every provider and compare"),
 };
 
 /** Free-form place or address query for forward geocoding. */

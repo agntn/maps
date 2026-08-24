@@ -1,5 +1,6 @@
 /** Plain-text formatters shared by the CLI, MCP server, AI tools, and agent extensions. */
 
+import type { ProviderOutcome } from "./all.ts";
 import type { ProviderListing } from "./registry.ts";
 import type { GeoLocation } from "./types.ts";
 
@@ -32,6 +33,31 @@ export function formatLocations(
   if (locations.length === 0) return `[${providerName}] No matches for "${query}"`;
   const lines = locations.map((location) => formatLocationLine(location));
   return `[${providerName}] ${locations.length} matches for "${query}":\n${lines.join("\n")}`;
+}
+
+/** Side-by-side geocoding results from every registered provider, failures included. */
+export function formatGeocodeAll(
+  query: string,
+  outcomes: ProviderOutcome<GeoLocation[]>[],
+): string {
+  return outcomes
+    .map((outcome) =>
+      outcome.error
+        ? `[${outcome.provider}] error: ${outcome.error.message}`
+        : formatLocations(outcome.provider, query, outcome.result),
+    )
+    .join("\n\n");
+}
+
+/** Side-by-side reverse-geocoding results from every registered provider, failures included. */
+export function formatReverseAll(outcomes: ProviderOutcome<GeoLocation>[]): string {
+  return outcomes
+    .map((outcome) =>
+      outcome.error
+        ? `[${outcome.provider}] error: ${outcome.error.message}`
+        : formatLocation(outcome.provider, outcome.result),
+    )
+    .join("\n\n");
 }
 
 /** Human-readable distance: meters below one kilometer, kilometers with exact meters above. */

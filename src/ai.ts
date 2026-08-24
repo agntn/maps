@@ -3,11 +3,13 @@
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 import type { GeoLocation } from "./core/types.ts";
+import type { SerializedOutcome } from "./core/all.ts";
+import { geocodeAll, reverseAll, serializeOutcomes } from "./core/all.ts";
 import { distanceBetween } from "./core/coordinates.ts";
 import { formatDistance } from "./core/format.ts";
 import { requireOperation } from "./core/provider.ts";
 import { providers } from "./core/registry.ts";
-import { selectProvider } from "./core/resolve.ts";
+import { isAllProviders, selectProvider } from "./core/resolve.ts";
 import {
   coordinatesInput,
   countryCodesInput,
@@ -35,29 +37,40 @@ const reverseInputSchema = z.object({
   ...providerInput,
 });
 
-export const geocodeTool: Tool<
-  z.infer<typeof geocodeInputSchema>,
-  { provider: string; locations: GeoLocation[] }
-> = tool({
-  description: "Resolve an address or place to geographic coordinates, best match first.",
+type GeocodeToolOutput =
+  | { provider: string; locations: GeoLocation[] }
+  | { comparison: SerializedOutcome<GeoLocation[]>[] };
+
+export const geocodeTool: Tool<z.infer<typeof geocodeInputSchema>, GeocodeToolOutput> = tool({
+  description:
+    "Resolve an address or place to geographic coordinates, best match first. Pass provider 'all' to compare every provider.",
   inputSchema: geocodeInputSchema,
   execute: async ({ query, limit, language, countryCodes, provider }) => {
+    const options = { limit, language, countryCodes };
+    if (isAllProviders(provider)) {
+      return { comparison: serializeOutcomes(await geocodeAll(query, options)) };
+    }
     const selected = selectProvider(provider);
     const geocode = requireOperation(selected.provider, "geocode");
     return {
       provider: selected.name,
-      locations: await geocode(query, { limit, language, countryCodes }),
+      locations: await geocode(query, options),
     };
   },
 });
 
-export const reverseTool: Tool<
-  z.infer<typeof reverseInputSchema>,
-  { provider: string; location: GeoLocation }
-> = tool({
-  description: "Resolve a latitude/longitude pair to the place at or nearest to it.",
+type ReverseToolOutput =
+  | { provider: string; location: GeoLocation }
+  | { comparison: SerializedOutcome<GeoLocation>[] };
+
+export const reverseTool: Tool<z.infer<typeof reverseInputSchema>, ReverseToolOutput> = tool({
+  description:
+    "Resolve a latitude/longitude pair to the place at or nearest to it. Pass provider 'all' to compare every provider.",
   inputSchema: reverseInputSchema,
   execute: async ({ latitude, longitude, language, provider }) => {
+    if (isAllProviders(provider)) {
+      return { comparison: serializeOutcomes(await reverseAll(latitude, longitude, { language })) };
+    }
     const selected = selectProvider(provider);
     const reverse = requireOperation(selected.provider, "reverse");
     return {

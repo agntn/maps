@@ -1,10 +1,11 @@
 /** Resolve coordinates to the place at or nearest to them */
 import { defineCommand } from "citty";
 import consola from "consola";
+import { reverseAll } from "../core/all.ts";
 import { parseCoordinates } from "../core/coordinates.ts";
-import { formatLocation } from "../core/format.ts";
+import { formatLocation, formatReverseAll } from "../core/format.ts";
 import { requireOperation } from "../core/provider.ts";
-import { selectProvider } from "../core/resolve.ts";
+import { isAllProviders, selectProvider } from "../core/resolve.ts";
 
 export default defineCommand({
   meta: {
@@ -21,7 +22,7 @@ export default defineCommand({
     provider: {
       type: "string",
       alias: "p",
-      description: "Provider",
+      description: 'Provider, or "all" to compare every provider',
     },
     language: {
       type: "string",
@@ -32,6 +33,11 @@ export default defineCommand({
   async run({ args }) {
     try {
       const { latitude, longitude } = parseCoordinates(args.coordinates);
+      if (isAllProviders(args.provider)) {
+        const outcomes = await reverseAll(latitude, longitude, { language: args.language });
+        consola.log(formatReverseAll(outcomes));
+        return;
+      }
       const { name, provider } = selectProvider(args.provider);
       const reverse = requireOperation(provider, "reverse");
       const location = await reverse(latitude, longitude, { language: args.language });

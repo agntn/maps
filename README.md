@@ -11,6 +11,7 @@ Every maps platform answers the same two questions - "where is this place?" and 
 - **Coordinate checking.** `isValidCoordinates`, `assertCoordinates` and `parseCoordinates` validate WGS 84 latitude/longitude pairs before any request leaves the machine.
 - **Structured addresses.** Both providers map house number, street, city, state, postcode and country onto one `GeoAddress` shape - no per-provider field spelunking.
 - **Distance without a provider.** `distanceBetween` computes the great-circle distance (haversine) locally - no key, no network, no rate limit.
+- **Compare providers.** Pass `all` as the provider and every backend answers in parallel, one request each - failures (missing key, unsupported operation) show up inline instead of being hidden.
 - **Honest capabilities.** A provider declares what it can serve; unsupported operations throw `UnsupportedOperationError` instead of pretending.
 - **CLI, library, MCP and agent extensions.** Use the same provider contract from a terminal, TypeScript, an MCP client, OMP, Pi or the Vercel AI SDK.
 - **Keys never leak.** Error messages redact secret query params - the Google Maps `key` included - before anyone sees them.
@@ -30,6 +31,7 @@ npx @agntn/maps providers
 npx @agntn/maps geocode "Pałac Kultury i Nauki, Warszawa"
 npx @agntn/maps reverse 52.2318,21.0067
 npx @agntn/maps geocode "Springfield" --country us -n 5
+npx @agntn/maps geocode "Warszawa" -p all
 ```
 
 ### Commands
@@ -46,12 +48,12 @@ For a coordinate pair that starts with a minus, put `--` before it: `maps revers
 
 ### Common options
 
-| Option           | Meaning                                                 |
-| ---------------- | ------------------------------------------------------- |
-| `-p, --provider` | Provider key: `openstreetmap` or `googlemaps`           |
-| `-l, --language` | Preferred language for result names (BCP 47, e.g. `pl`) |
-| `-n, --limit`    | Maximum number of results for `geocode`                 |
-| `--country`      | Comma-separated ISO country codes to restrict `geocode` |
+| Option           | Meaning                                                                         |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `-p, --provider` | Provider key: `openstreetmap`, `googlemaps`, or `all` to compare every provider |
+| `-l, --language` | Preferred language for result names (BCP 47, e.g. `pl`)                         |
+| `-n, --limit`    | Maximum number of results for `geocode`                                         |
+| `--country`      | Comma-separated ISO country codes to restrict `geocode`                         |
 
 Without `--provider`, Maps first checks configured API keys and then falls back to OpenStreetMap, which needs no key at all.
 
@@ -79,6 +81,8 @@ console.log(place.address?.city, place.address?.postcode);
 ```
 
 Check `provider.capabilities` before calling an operation - future backends may not serve both.
+
+To compare backends programmatically, `geocodeAll` and `reverseAll` fan out to every registered provider in parallel and return per-provider results with failures kept inline.
 
 ## MCP
 

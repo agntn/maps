@@ -12,6 +12,8 @@ export default defineCommand({
   async run() {
     consola.log(formatProviders(listProviders()));
     consola.log("");
-    consola.info("Use --provider <name> to select a specific provider");
+    consola.info(
+      "Use --provider <name> to select a specific provider, or --provider all to compare every provider",
+    );
   },
 });

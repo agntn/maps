@@ -69,6 +69,25 @@ describe("Maps MCP server", () => {
     ]);
   });
 
+  it("compares every provider when provider is 'all'", async () => {
+    stubJSON([{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska" }]);
+    const client = await connectTestClient();
+
+    const response = await client.callTool({
+      name: "maps_geocode",
+      arguments: { query: "Warszawa", provider: "all" },
+    });
+    expect(response.isError).not.toBe(true);
+    expect(response.content).toEqual([
+      {
+        type: "text",
+        text: expect.stringMatching(
+          /"provider": "openstreetmap"[\s\S]*"provider": "googlemaps"[\s\S]*"error": "Authentication failed/,
+        ),
+      },
+    ]);
+  });
+
   it("computes a distance locally without any provider or network", async () => {
     const client = await connectTestClient();
 

@@ -38,12 +38,16 @@ export {
 export { getJSON, buildQuery } from "./core/client.ts";
 export { register, create, providers, has, getDefaultURL, listProviders } from "./core/registry.ts";
 export type { ProviderListing } from "./core/registry.ts";
-export { resolveProvider, selectProvider } from "./core/resolve.ts";
+export { isAllProviders, resolveProvider, selectProvider } from "./core/resolve.ts";
 export type { SelectedProvider } from "./core/resolve.ts";
+export { geocodeAll, reverseAll, serializeOutcomes } from "./core/all.ts";
+export type { ProviderOutcome, SerializedOutcome } from "./core/all.ts";
 export {
   formatDistance,
+  formatGeocodeAll,
   formatLocation,
   formatLocationLine,
   formatLocations,
   formatProviders,
+  formatReverseAll,
 } from "./core/format.ts";

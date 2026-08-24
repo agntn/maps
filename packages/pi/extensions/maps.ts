@@ -38,6 +38,7 @@ export default function mapsExtension(pi: ExtensionAPI): void {
     promptGuidelines: [
       "Use maps_geocode with a free-form address or place query; results come best match first.",
       "maps_geocode returns normalized coordinates, display name, category, and country per match.",
+      "Pass provider 'all' to maps_geocode to compare results from every provider side by side.",
     ],
     parameters: Type.Object({
       query: Type.String({ description: "Address or place to geocode", minLength: 1 }),
@@ -62,20 +63,25 @@ export default function mapsExtension(pi: ExtensionAPI): void {
       provider: Type.Optional(
         Type.String({
           description:
-            "Registered provider key, for example openstreetmap or googlemaps; use maps_providers to list all providers",
+            "Registered provider key, or 'all' to compare every provider; use maps_providers to list all providers",
           minLength: 1,
         }),
       ),
     }),
     async execute(_toolCallId, params): Promise<MapsToolResult> {
       const lib = await loadLibrary();
-      const { name, provider } = lib.selectProvider(params.provider);
-      const geocode = lib.requireOperation(provider, "geocode");
-      const locations = await geocode(params.query, {
+      const options = {
         limit: params.limit,
         language: params.language,
         countryCodes: params.countryCodes,
-      });
+      };
+      if (lib.isAllProviders(params.provider)) {
+        const outcomes = await lib.geocodeAll(params.query, options);
+        return textResult(lib.formatGeocodeAll(params.query, outcomes));
+      }
+      const { name, provider } = lib.selectProvider(params.provider);
+      const geocode = lib.requireOperation(provider, "geocode");
+      const locations = await geocode(params.query, options);
       return textResult(lib.formatLocations(name, params.query, locations));
     },
   });
@@ -106,10 +112,21 @@ export default function mapsExtension(pi: ExtensionAPI): void {
           minLength: 1,
         }),
       ),
-      provider: Type.Optional(Type.String({ description: "Provider", minLength: 1 })),
+      provider: Type.Optional(
+        Type.String({
+          description: "Provider, or 'all' to compare every provider",
+          minLength: 1,
+        }),
+      ),
     }),
     async execute(_toolCallId, params): Promise<MapsToolResult> {
       const lib = await loadLibrary();
+      if (lib.isAllProviders(params.provider)) {
+        const outcomes = await lib.reverseAll(params.latitude, params.longitude, {
+          language: params.language,
+        });
+        return textResult(lib.formatReverseAll(outcomes));
+      }
       const { name, provider } = lib.selectProvider(params.provider);
       const reverse = lib.requireOperation(provider, "reverse");
       const location = await reverse(params.latitude, params.longitude, {

@@ -3,9 +3,9 @@ import type {
   ExtensionContext,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Value } from "typebox/value";
-import { requireTool } from "../helpers.ts";
+import { requireTool, stubJSON } from "../helpers.ts";
 import mapsExtension from "../../packages/pi/extensions/maps.ts";
 
 /** SAFETY: the extension only calls registerTool during registration; the fake implements that exact seam. */
@@ -23,6 +23,10 @@ function registerExtensionTools(): Map<string, ToolDefinition> {
 
 /** SAFETY: the tested execute functions do not read ExtensionContext. */
 const unusedContext = {} as ExtensionContext;
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("maps Pi extension", () => {
   it("registers the complete tool set", () => {
@@ -64,6 +68,23 @@ describe("maps Pi extension", () => {
     expect(Value.Check(tool.parameters, { latitude: 95, longitude: 21.01 })).toBe(false);
     expect(Value.Check(tool.parameters, { latitude: 52.23, longitude: 200 })).toBe(false);
     expect(Value.Check(tool.parameters, { latitude: 52.23 })).toBe(false);
+  });
+
+  it("compares providers side by side when provider is 'all'", async () => {
+    stubJSON([{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska" }]);
+    const tool = requireTool(registerExtensionTools(), "maps_geocode");
+
+    const result = await tool.execute(
+      "test",
+      { query: "Warszawa", provider: "all" },
+      undefined,
+      undefined,
+      unusedContext,
+    );
+
+    const text = (result.content[0] as { text: string }).text;
+    expect(text).toContain('[openstreetmap] 1 matches for "Warszawa"');
+    expect(text).toContain("[googlemaps] error: Authentication failed for googlemaps");
   });
 
   it("computes a distance locally without network access", async () => {

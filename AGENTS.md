@@ -31,6 +31,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - Internal imports use explicit `.ts` extensions (nodenext + `allowImportingTsExtensions`); `erasableSyntaxOnly` forbids parameter properties
 - Provider auto-selection: `resolveProvider()` checks the env keys listed in `ENV_MAP` (built-in providers only; an externally registered provider must be selected explicitly), falls back to `openstreetmap`
 - `selectProvider()` in `core/resolve.ts` is the single provider selection path for the CLI, MCP, AI tools, and both extensions; empty or whitespace-only arguments count as absent
+- The provider value `all` is reserved: surfaces test it with `isAllProviders()` before `selectProvider()` and route to the parallel fan-out in `core/all.ts` (`geocodeAll`/`reverseAll`); failures stay in the outcome list (`ProviderOutcome`), JSON surfaces reduce them via `serializeOutcomes()`, text surfaces render via `formatGeocodeAll`/`formatReverseAll`
 - Capability gating goes through `requireOperation()` in `core/provider.ts`; text rendering through the `format*` helpers in `core/format.ts` - do not re-implement either per surface
 
 ## Key files
@@ -40,7 +41,8 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - `src/core/provider.ts` - abstract `Provider` base class (`geocode`, `reverse`); `requireOperation()` capability gate
 - `src/core/errors.ts` - error hierarchy + `normalizeError` + URL sanitization
 - `src/core/registry.ts` - self-registering provider registry (register, create, providers, has, getDefaultURL, listProviders)
-- `src/core/resolve.ts` - env-based auto-selection, shared `selectProvider()`
+- `src/core/resolve.ts` - env-based auto-selection, shared `selectProvider()`, `isAllProviders()`
+- `src/core/all.ts` - parallel fan-out over every provider (`geocodeAll`, `reverseAll`, `serializeOutcomes`)
 - `src/core/format.ts` - plain-text formatters shared by every output surface, `formatProviders` included
 - `src/core/schemas.ts` - zod input fragments shared by the MCP server and the AI tools
 - `src/core/client.ts` - ofetch wrapper (15 s timeout, no retry, identifying User-Agent), `buildQuery`

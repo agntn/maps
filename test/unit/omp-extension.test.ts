@@ -19,7 +19,7 @@ vi.mock("@oh-my-pi/pi-coding-agent/tui", () => ({
   renderStatusLine: (options: unknown) => JSON.stringify(options),
 }));
 
-import { requireTool } from "../helpers.ts";
+import { requireTool, stubJSON } from "../helpers.ts";
 import mapsOmpExtension, { sanitizeTerminalText } from "../../packages/omp/extensions/maps.ts";
 
 interface RegisteredExtension {
@@ -93,6 +93,24 @@ describe("maps OMP extension", () => {
     expect(accepts(tool, { from, to: { latitude: 0, longitude: 1 } })).toBe(true);
     expect(accepts(tool, { from })).toBe(false);
     expect(accepts(tool, { from, to: { latitude: 95, longitude: 1 } })).toBe(false);
+  });
+
+  it("compares providers side by side when provider is 'all'", async () => {
+    stubJSON([{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska" }]);
+    const tool = requireTool(registerExtensionTools().tools, "maps_geocode");
+
+    const result = await tool.execute(
+      "test",
+      { query: "Warszawa", provider: "all" },
+      undefined,
+      undefined,
+      unusedContext,
+    );
+    vi.unstubAllGlobals();
+
+    const text = (result.content[0] as { text: string }).text;
+    expect(text).toContain('[openstreetmap] 1 matches for "Warszawa"');
+    expect(text).toContain("[googlemaps] error: Authentication failed for googlemaps");
   });
 
   it("strips terminal control sequences at the render boundary", () => {
