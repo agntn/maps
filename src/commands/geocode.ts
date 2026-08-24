@@ -1,0 +1,63 @@
+/** Resolve an address or place to coordinates */
+import { defineCommand } from "citty";
+import consola from "consola";
+import { formatLocations } from "../core/format.ts";
+import { requireOperation } from "../core/provider.ts";
+import { selectProvider } from "../core/resolve.ts";
+
+export default defineCommand({
+  meta: {
+    name: "geocode",
+    description: "Resolve an address or place to geographic coordinates",
+  },
+  args: {
+    query: {
+      type: "positional",
+      description: "Address or place to geocode",
+      required: true,
+    },
+    provider: {
+      type: "string",
+      alias: "p",
+      description: "Provider",
+    },
+    limit: {
+      type: "string",
+      alias: "n",
+      description: "Maximum number of results",
+    },
+    language: {
+      type: "string",
+      alias: "l",
+      description: "Preferred language for result names (BCP 47)",
+    },
+    country: {
+      type: "string",
+      description: "Comma-separated ISO 3166-1 alpha-2 country codes to restrict results",
+    },
+  },
+  async run({ args }) {
+    try {
+      let limit: number | undefined;
+      if (args.limit !== undefined) {
+        limit = Number.parseInt(args.limit, 10);
+        if (Number.isNaN(limit) || limit < 1) {
+          consola.error(`Invalid limit: ${args.limit}`);
+          process.exit(1);
+        }
+      }
+
+      const { name, provider } = selectProvider(args.provider);
+      const geocode = requireOperation(provider, "geocode");
+      const locations = await geocode(args.query, {
+        limit,
+        language: args.language,
+        countryCodes: args.country?.split(",").map((code) => code.trim()),
+      });
+      consola.log(formatLocations(name, args.query, locations));
+    } catch (error) {
+      consola.error(`Error: ${error instanceof Error ? error.message : error}`);
+      process.exit(1);
+    }
+  },
+});
