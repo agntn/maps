@@ -5,6 +5,8 @@ import { geocodeAll, geocodeWithFallback } from "../core/all.ts";
 import { formatGeocodeAll, formatLocations } from "../core/format.ts";
 import { requireOperation } from "../core/provider.ts";
 import { isAllProviders, selectProvider } from "../core/resolve.ts";
+import { GEOCODE_LAYERS } from "../core/types.ts";
+import type { GeocodeLayer } from "../core/types.ts";
 
 export default defineCommand({
   meta: {
@@ -36,6 +38,10 @@ export default defineCommand({
       type: "string",
       description: "Comma-separated ISO 3166-1 alpha-2 country codes to restrict results",
     },
+    layer: {
+      type: "string",
+      description: `Comma-separated place layers to keep: ${GEOCODE_LAYERS.join(", ")}`,
+    },
   },
   async run({ args }) {
     try {
@@ -48,6 +54,16 @@ export default defineCommand({
         }
       }
 
+      const layers = args.layer
+        ?.split(",")
+        .map((layer) => layer.trim())
+        .filter((layer) => layer !== "");
+      const unknownLayer = layers?.find((layer) => !GEOCODE_LAYERS.includes(layer as GeocodeLayer));
+      if (unknownLayer !== undefined) {
+        consola.error(`Invalid layer: ${unknownLayer} (use ${GEOCODE_LAYERS.join(", ")})`);
+        process.exit(1);
+      }
+
       const options = {
         limit,
         language: args.language,
@@ -55,6 +71,7 @@ export default defineCommand({
           ?.split(",")
           .map((code) => code.trim())
           .filter((code) => code !== ""),
+        layers: layers as GeocodeLayer[] | undefined,
       };
       if (isAllProviders(args.provider)) {
         consola.log(formatGeocodeAll(args.query, await geocodeAll(args.query, options)));

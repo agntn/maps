@@ -16,7 +16,7 @@ import type {
   ProviderConfig,
   ReverseOptions,
 } from "../core/types.ts";
-import { Provider, assertAddress, assertQuery } from "../core/provider.ts";
+import { Provider, assertAddress, assertLayers, assertQuery } from "../core/provider.ts";
 import { buildQuery } from "../core/client.ts";
 import { assertCoordinates } from "../core/coordinates.ts";
 import { NotFoundError } from "../core/errors.ts";
@@ -108,7 +108,7 @@ class OpenStreetMap extends Provider {
     };
   }
 
-  /** Shared query-string tail for both geocoding shapes. */
+  /** Shared query-string tail for both geocoding shapes; `layers` maps 1:1 onto `layer`. */
   private searchParams(options?: GeocodeOptions): Record<string, string | number | undefined> {
     const countryCodes = options?.countryCodes?.map((code) => code.toLowerCase()).join(",");
     return {
@@ -117,11 +117,13 @@ class OpenStreetMap extends Provider {
       limit: clampMaxResults(options?.limit, MAX_RESULTS),
       "accept-language": options?.language,
       countrycodes: countryCodes || undefined,
+      layer: options?.layers?.join(",") || undefined,
     };
   }
 
   async geocode(query: string, options?: GeocodeOptions): Promise<GeoLocation[]> {
     assertQuery(query, "openstreetmap");
+    assertLayers(options?.layers, "openstreetmap");
     const url = `${this.baseUrl}/search${buildQuery({ q: query, ...this.searchParams(options) })}`;
     const data = await this.getJSON<NominatimPlace[]>(url);
     return data.map((place) => mapPlace(place));
@@ -130,6 +132,7 @@ class OpenStreetMap extends Provider {
   /** Nominatim structured search; `street` carries "housenumber streetname" per its contract. */
   async geocodeAddress(address: GeoAddress, options?: GeocodeOptions): Promise<GeoLocation[]> {
     assertAddress(address, "openstreetmap");
+    assertLayers(options?.layers, "openstreetmap");
     const street = [address.houseNumber, address.road].filter(Boolean).join(" ");
     const url = `${this.baseUrl}/search${buildQuery({
       street: street || undefined,

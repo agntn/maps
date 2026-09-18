@@ -25,6 +25,7 @@ import {
   granularityInput,
   languageInput,
   latitudeInput,
+  layersInput,
   limitInput,
   longitudeInput,
   providerInput,
@@ -37,6 +38,7 @@ const geocodeInputSchema = z.object({
   limit: limitInput,
   language: languageInput,
   countryCodes: countryCodesInput,
+  layers: layersInput,
   ...providerInput,
 });
 
@@ -56,8 +58,8 @@ export const geocodeTool: Tool<z.infer<typeof geocodeInputSchema>, GeocodeToolOu
   description:
     "Resolve an address or place to geographic coordinates, best match first. Pass provider 'all' to compare every provider.",
   inputSchema: geocodeInputSchema,
-  execute: async ({ query, limit, language, countryCodes, provider }) => {
-    const options = { limit, language, countryCodes };
+  execute: async ({ query, limit, language, countryCodes, layers, provider }) => {
+    const options = { limit, language, countryCodes, layers };
     if (isAllProviders(provider)) {
       return { comparison: serializeOutcomes(await geocodeAll(query, options)) };
     }

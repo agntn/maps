@@ -34,6 +34,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - The provider value `all` is reserved: surfaces test it with `isAllProviders()` before `selectProvider()` and route to the parallel fan-out in `core/all.ts` (`geocodeAll`/`geocodeAddressAll`/`reverseAll`); failures stay in the outcome list (`ProviderOutcome`), JSON surfaces reduce them via `serializeOutcomes()`, text surfaces render via `formatGeocodeAll`/`formatReverseAll`
 - Auto-selected requests (no provider given) go through the `*WithFallback` trio in `core/all.ts`: auth, billing, rate-limit, and unsupported-operation failures skip to the next provider, anything else propagates, and when everything is skipped the first skip reason is thrown; an explicit provider is never substituted
 - Reverse `granularity` (country/state/city/street/building) maps onto Nominatim `zoom` (3/5/10/16/18) and the Google `result_type` filter (country/administrative_area_level_1/locality/route/street_address)
+- Forward `layers` (address/poi/natural, `GEOCODE_LAYERS`) maps 1:1 onto the Nominatim `layer` filter; the Google Geocoding API has no request-side layer filter, so `googlemaps` partitions each result by its `types` locally (`natural_feature` → natural, `POI_TYPES` → poi, anything else → address) before the limit is applied. Nominatim's `railway` and `manmade` layers stay out of the API because Google has no counterpart. An empty list means no filter, like `countryCodes`
 - Capability gating goes through `requireOperation()` in `core/provider.ts`; text rendering through the `format*` helpers in `core/format.ts` - do not re-implement either per surface
 - Structured geocoding takes the same `GeoAddress` shape the results use; `assertAddress()` rejects an all-empty input, Nominatim gets `street`/`city`/`state`/`postalcode`/`country` params, Google gets house number and street in the free-form `address` param plus the rest as a `components` filter (its filter has no street_number type)
 
@@ -57,7 +58,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 ## CLI subcommands
 
-`geocode`, `address`, `reverse`, `distance`, `providers`, `mcp` - provider commands support `-p` (provider, `all` included) and `-l` (language); `geocode` adds `-n` (limit) and `--country` (comma-separated ISO codes); `address` takes the fields as flags (`--house`, `--road`, `--city`, `--state`, `--postcode`, `--country`); `distance` is local-only and prints bearing too. `reverse` and `distance` take positional `"latitude,longitude"` pairs; a pair starting with a minus needs a `--` separator first, because the argument parser would read it as a flag.
+`geocode`, `address`, `reverse`, `distance`, `providers`, `mcp` - provider commands support `-p` (provider, `all` included) and `-l` (language); `geocode` adds `-n` (limit), `--country` (comma-separated ISO codes) and `--layer` (comma-separated `GEOCODE_LAYERS`); `address` takes the fields as flags (`--house`, `--road`, `--city`, `--state`, `--postcode`, `--country`); `distance` is local-only and prints bearing too. `reverse` and `distance` take positional `"latitude,longitude"` pairs; a pair starting with a minus needs a `--` separator first, because the argument parser would read it as a flag.
 
 ## Constraints
 
@@ -70,11 +71,11 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 ## Testing
 
-`pnpm test` (vitest, 8 files / 83 tests, all mocked via `vi.stubGlobal("fetch", ...)`). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
+`pnpm test` (vitest, 9 files / 127 tests, all mocked via `vi.stubGlobal("fetch", ...)`). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
 
 Subprocess gates in `test/eval-*.mjs`, each runnable on its own:
 
-- `pnpm test:cli` - every subcommand spawned against the built binary: exit codes, error messages, help screens, three live Nominatim calls spaced past the 1 req/s policy
+- `pnpm test:cli` - every subcommand spawned against the built binary: exit codes, error messages, help screens, live Nominatim calls spaced past the 1 req/s policy
 - `pnpm test:mcp` - the built stdio server through a real `StdioClientTransport` with `DEBUG=1`, plus a raw spawn asserting stdout carries only JSON-RPC frames
 - `pnpm test:packed` - `pnpm pack`, tarball installed with `npm install --legacy-peer-deps` in a temp dir, a provider registered through the main entry read back through the `/mcp` entry (catches registry chunk splits, missing deps and broken `files`), and the packed CLI smoke
 

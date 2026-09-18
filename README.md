@@ -31,6 +31,7 @@ npx @agntn/maps providers
 npx @agntn/maps geocode "Pałac Kultury i Nauki, Warszawa"
 npx @agntn/maps reverse 52.2318,21.0067
 npx @agntn/maps geocode "Springfield" --country us -n 5
+npx @agntn/maps geocode "United States Supreme Court" --layer poi
 npx @agntn/maps geocode "Warszawa" -p all
 ```
 
@@ -55,6 +56,9 @@ For a coordinate pair that starts with a minus, put `--` before it: `maps revers
 | `-l, --language` | Preferred language for result names (BCP 47, e.g. `pl`)                         |
 | `-n, --limit`    | Maximum number of results for `geocode`                                         |
 | `--country`      | Comma-separated ISO country codes to restrict `geocode`                         |
+| `--layer`        | Comma-separated place layers to keep in `geocode`: `address`, `poi`, `natural`  |
+
+A landmark query tends to drown in streets named after it (`"United States Supreme Court"` is 40 residential streets on Nominatim); `--layer poi` keeps only named points of interest, `natural` rivers, lakes and mountains, `address` streets, house numbers and administrative places.
 
 Without `--provider`, Maps auto-selects by configured API keys and, when that backend answers with an auth, billing, or rate-limit failure, quietly retries the next one - the reply always names the provider that actually answered. An explicit `--provider` is never substituted.
 
