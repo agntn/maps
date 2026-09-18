@@ -35,6 +35,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - Auto-selected requests (no provider given) go through the `*WithFallback` trio in `core/all.ts`: auth, billing, rate-limit, and unsupported-operation failures skip to the next provider, anything else propagates, and when everything is skipped the first skip reason is thrown; an explicit provider is never substituted
 - Reverse `granularity` (country/state/city/street/building) maps onto Nominatim `zoom` (3/5/10/16/18) and the Google `result_type` filter (country/administrative_area_level_1/locality/route/street_address)
 - Forward `layers` (address/poi/natural, `GEOCODE_LAYERS`) maps 1:1 onto the Nominatim `layer` filter; the Google Geocoding API has no request-side layer filter, so `googlemaps` partitions each result by its `types` locally (`natural_feature` → natural, `POI_TYPES` → poi, anything else → address) before the limit is applied. Nominatim's `railway` and `manmade` layers stay out of the API because Google has no counterpart. An empty list means no filter, like `countryCodes`
+- `GeoLocation.raw` stays on the library type, but the MCP and AI tools send it only when the call passes `raw: true` (`rawInput` in `core/schemas.ts`, `trimLocation`/`trimLocations` in `core/types.ts`, and the `view` argument of `serializeOutcomes` for the `all` path): the record repeats the normalized fields and was two thirds of a default `maps_geocode` answer (52 kB for 36 Nominatim results). The CLI, Pi and OMP text formatters never print it
 - Capability gating goes through `requireOperation()` in `core/provider.ts`; text rendering through the `format*` helpers in `core/format.ts` - do not re-implement either per surface
 - Structured geocoding takes the same `GeoAddress` shape the results use; `assertAddress()` rejects an all-empty input, Nominatim gets `street`/`city`/`state`/`postalcode`/`country` params, Google gets house number and street in the free-form `address` param plus the rest as a `components` filter (its filter has no street_number type)
 
@@ -71,7 +72,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 ## Testing
 
-`pnpm test` (vitest, 9 files / 127 tests, all mocked via `vi.stubGlobal("fetch", ...)`). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
+`pnpm test` (vitest, 10 files / 135 tests, all mocked via `vi.stubGlobal("fetch", ...)`). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
 
 Subprocess gates in `test/eval-*.mjs`, each runnable on its own:
 

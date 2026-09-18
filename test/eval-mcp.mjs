@@ -89,6 +89,14 @@ check(
   JSON.stringify(listed.tools.map((tool) => tool.name)),
 );
 
+const geocodeTool = listed.tools.find((tool) => tool.name === "maps_geocode");
+const rawFlag = geocodeTool?.inputSchema?.properties?.raw;
+check(
+  "geocode declares raw as an opt-in boolean",
+  rawFlag?.type === "boolean" && rawFlag.description?.includes("Defaults to false"),
+  JSON.stringify(rawFlag),
+);
+
 const providers = await client.callTool({ name: "maps_providers", arguments: {} });
 check(
   "providers reports the unconfigured backend",
@@ -132,10 +140,11 @@ if (LIVE) {
     arguments: { query: "Pałac Kultury i Nauki, Warszawa", limit: 1 },
   });
   check(
-    "live geocode answers with the provider name and coordinates",
+    "live geocode answers with the provider name and coordinates, without the raw record",
     geocode.isError !== true &&
       firstText(geocode).includes('"provider": "openstreetmap"') &&
-      firstText(geocode).includes('"latitude"'),
+      firstText(geocode).includes('"latitude"') &&
+      !firstText(geocode).includes('"raw"'),
     firstText(geocode),
   );
 } else {

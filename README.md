@@ -97,6 +97,8 @@ The package ships an MCP server with five read-only tools (`maps_providers`, `ma
 claude mcp add maps --scope user -- npx @agntn/maps mcp
 ```
 
+Results come without the provider's own record. It repeats the normalized fields at twice their size, so `maps_geocode`, `maps_geocode_address` and `maps_reverse` send it only when the call passes `raw: true`, for a field the normalized shape doesn't carry, like Nominatim's `osm_id` or Google's `place_id`.
+
 Hosts with their own transport can import the server factory from `@agntn/maps/mcp`.
 
 ## Agent extensions
@@ -111,7 +113,7 @@ From a source checkout, link the local package instead with `omp install .`. OMP
 
 ## AI SDK
 
-`@agntn/maps/ai` exports the same operations as Vercel AI SDK tools: `geocodeTool`, `geocodeAddressTool`, `reverseTool`, `distanceTool` and `providersTool`.
+`@agntn/maps/ai` exports the same operations as Vercel AI SDK tools: `geocodeTool`, `geocodeAddressTool`, `reverseTool`, `distanceTool` and `providersTool`. The geocoding tools take the same `raw` flag as the MCP server.
 
 ## License
 

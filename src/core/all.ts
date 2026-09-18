@@ -80,12 +80,15 @@ export function reverseAll(
   return runAll((provider) => requireOperation(provider, "reverse")(latitude, longitude, options));
 }
 
-/** Reduce outcomes to a JSON-safe shape for MCP and AI tool results. */
-export function serializeOutcomes<T>(outcomes: ProviderOutcome<T>[]): SerializedOutcome<T>[] {
+/** JSON-safe outcomes for the MCP and AI tools; every success goes through `view` first. */
+export function serializeOutcomes<T>(
+  outcomes: ProviderOutcome<T>[],
+  view: (result: T) => T = (result) => result,
+): SerializedOutcome<T>[] {
   return outcomes.map((outcome) =>
     outcome.error
       ? { provider: outcome.provider, error: outcome.error.message }
-      : { provider: outcome.provider, result: outcome.result },
+      : { provider: outcome.provider, result: view(outcome.result) },
   );
 }
 

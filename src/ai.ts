@@ -30,7 +30,9 @@ import {
   longitudeInput,
   providerInput,
   queryInput,
+  rawInput,
 } from "./core/schemas.ts";
+import { trimLocation, trimLocations } from "./core/types.ts";
 import "./providers/index.ts";
 
 const geocodeInputSchema = z.object({
@@ -40,6 +42,7 @@ const geocodeInputSchema = z.object({
   countryCodes: countryCodesInput,
   layers: layersInput,
   ...providerInput,
+  ...rawInput,
 });
 
 const reverseInputSchema = z.object({
@@ -48,6 +51,7 @@ const reverseInputSchema = z.object({
   language: languageInput,
   granularity: granularityInput,
   ...providerInput,
+  ...rawInput,
 });
 
 type GeocodeToolOutput =
@@ -58,18 +62,22 @@ export const geocodeTool: Tool<z.infer<typeof geocodeInputSchema>, GeocodeToolOu
   description:
     "Resolve an address or place to geographic coordinates, best match first. Pass provider 'all' to compare every provider.",
   inputSchema: geocodeInputSchema,
-  execute: async ({ query, limit, language, countryCodes, layers, provider }) => {
+  execute: async ({ query, limit, language, countryCodes, layers, provider, raw }) => {
     const options = { limit, language, countryCodes, layers };
     if (isAllProviders(provider)) {
-      return { comparison: serializeOutcomes(await geocodeAll(query, options)) };
+      const outcomes = await geocodeAll(query, options);
+      return {
+        comparison: serializeOutcomes(outcomes, (locations) => trimLocations(locations, raw)),
+      };
     }
     if (provider?.trim()) {
       const selected = selectProvider(provider);
       const geocode = requireOperation(selected.provider, "geocode");
-      return { provider: selected.name, locations: await geocode(query, options) };
+      const locations = trimLocations(await geocode(query, options), raw);
+      return { provider: selected.name, locations };
     }
     const fallback = await geocodeWithFallback(query, options);
-    return { provider: fallback.provider, locations: fallback.result };
+    return { provider: fallback.provider, locations: trimLocations(fallback.result, raw) };
   },
 });
 
@@ -78,6 +86,7 @@ const geocodeAddressInputSchema = z.object({
   limit: limitInput,
   language: languageInput,
   ...providerInput,
+  ...rawInput,
 });
 
 export const geocodeAddressTool: Tool<
@@ -97,19 +106,24 @@ export const geocodeAddressTool: Tool<
     limit,
     language,
     provider,
+    raw,
   }) => {
     const address = { houseNumber, road, city, state, postcode, country };
     const options = { limit, language };
     if (isAllProviders(provider)) {
-      return { comparison: serializeOutcomes(await geocodeAddressAll(address, options)) };
+      const outcomes = await geocodeAddressAll(address, options);
+      return {
+        comparison: serializeOutcomes(outcomes, (locations) => trimLocations(locations, raw)),
+      };
     }
     if (provider?.trim()) {
       const selected = selectProvider(provider);
       const geocodeAddress = requireOperation(selected.provider, "geocodeAddress");
-      return { provider: selected.name, locations: await geocodeAddress(address, options) };
+      const locations = trimLocations(await geocodeAddress(address, options), raw);
+      return { provider: selected.name, locations };
     }
     const fallback = await geocodeAddressWithFallback(address, options);
-    return { provider: fallback.provider, locations: fallback.result };
+    return { provider: fallback.provider, locations: trimLocations(fallback.result, raw) };
   },
 });
 
@@ -121,18 +135,20 @@ export const reverseTool: Tool<z.infer<typeof reverseInputSchema>, ReverseToolOu
   description:
     "Resolve a latitude/longitude pair to the place at or nearest to it. Pass provider 'all' to compare every provider.",
   inputSchema: reverseInputSchema,
-  execute: async ({ latitude, longitude, language, granularity, provider }) => {
+  execute: async ({ latitude, longitude, language, granularity, provider, raw }) => {
     const options = { language, granularity };
     if (isAllProviders(provider)) {
-      return { comparison: serializeOutcomes(await reverseAll(latitude, longitude, options)) };
+      const outcomes = await reverseAll(latitude, longitude, options);
+      return { comparison: serializeOutcomes(outcomes, (location) => trimLocation(location, raw)) };
     }
     if (provider?.trim()) {
       const selected = selectProvider(provider);
       const reverse = requireOperation(selected.provider, "reverse");
-      return { provider: selected.name, location: await reverse(latitude, longitude, options) };
+      const location = trimLocation(await reverse(latitude, longitude, options), raw);
+      return { provider: selected.name, location };
     }
     const fallback = await reverseWithFallback(latitude, longitude, options);
-    return { provider: fallback.provider, location: fallback.result };
+    return { provider: fallback.provider, location: trimLocation(fallback.result, raw) };
   },
 });
 

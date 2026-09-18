@@ -26,7 +26,9 @@ import {
   longitudeInput,
   providerInput,
   queryInput,
+  rawInput,
 } from "./core/schemas.ts";
+import { trimLocation, trimLocations } from "./core/types.ts";
 import { version } from "./version.ts";
 import "./providers/index.ts";
 
@@ -64,21 +66,23 @@ export function createMcpServer(): McpServer {
         countryCodes: countryCodesInput,
         layers: layersInput,
         ...providerInput,
+        ...rawInput,
       },
       annotations: { readOnlyHint: true },
     },
-    async ({ query, limit, language, countryCodes, layers, provider }) => {
+    async ({ query, limit, language, countryCodes, layers, provider, raw }) => {
       const options = { limit, language, countryCodes, layers };
       if (isAllProviders(provider)) {
-        return result(serializeOutcomes(await geocodeAll(query, options)));
+        const outcomes = await geocodeAll(query, options);
+        return result(serializeOutcomes(outcomes, (locations) => trimLocations(locations, raw)));
       }
       if (provider?.trim()) {
         const selected = selectProvider(provider);
         const geocode = requireOperation(selected.provider, "geocode");
-        return providerResult(selected.name, await geocode(query, options));
+        return providerResult(selected.name, trimLocations(await geocode(query, options), raw));
       }
       const fallback = await geocodeWithFallback(query, options);
-      return providerResult(fallback.provider, fallback.result);
+      return providerResult(fallback.provider, trimLocations(fallback.result, raw));
     },
   );
 
@@ -92,22 +96,36 @@ export function createMcpServer(): McpServer {
         limit: limitInput,
         language: languageInput,
         ...providerInput,
+        ...rawInput,
       },
       annotations: { readOnlyHint: true },
     },
-    async ({ houseNumber, road, city, state, postcode, country, limit, language, provider }) => {
+    async ({
+      houseNumber,
+      road,
+      city,
+      state,
+      postcode,
+      country,
+      limit,
+      language,
+      provider,
+      raw,
+    }) => {
       const address = { houseNumber, road, city, state, postcode, country };
       const options = { limit, language };
       if (isAllProviders(provider)) {
-        return result(serializeOutcomes(await geocodeAddressAll(address, options)));
+        const outcomes = await geocodeAddressAll(address, options);
+        return result(serializeOutcomes(outcomes, (locations) => trimLocations(locations, raw)));
       }
       if (provider?.trim()) {
         const selected = selectProvider(provider);
         const geocodeAddress = requireOperation(selected.provider, "geocodeAddress");
-        return providerResult(selected.name, await geocodeAddress(address, options));
+        const locations = await geocodeAddress(address, options);
+        return providerResult(selected.name, trimLocations(locations, raw));
       }
       const fallback = await geocodeAddressWithFallback(address, options);
-      return providerResult(fallback.provider, fallback.result);
+      return providerResult(fallback.provider, trimLocations(fallback.result, raw));
     },
   );
 
@@ -121,21 +139,24 @@ export function createMcpServer(): McpServer {
         language: languageInput,
         granularity: granularityInput,
         ...providerInput,
+        ...rawInput,
       },
       annotations: { readOnlyHint: true },
     },
-    async ({ latitude, longitude, language, granularity, provider }) => {
+    async ({ latitude, longitude, language, granularity, provider, raw }) => {
       const options = { language, granularity };
       if (isAllProviders(provider)) {
-        return result(serializeOutcomes(await reverseAll(latitude, longitude, options)));
+        const outcomes = await reverseAll(latitude, longitude, options);
+        return result(serializeOutcomes(outcomes, (location) => trimLocation(location, raw)));
       }
       if (provider?.trim()) {
         const selected = selectProvider(provider);
         const reverse = requireOperation(selected.provider, "reverse");
-        return providerResult(selected.name, await reverse(latitude, longitude, options));
+        const location = await reverse(latitude, longitude, options);
+        return providerResult(selected.name, trimLocation(location, raw));
       }
       const fallback = await reverseWithFallback(latitude, longitude, options);
-      return providerResult(fallback.provider, fallback.result);
+      return providerResult(fallback.provider, trimLocation(fallback.result, raw));
     },
   );
 
