@@ -164,6 +164,25 @@ describe("Maps MCP server", () => {
     expect(response.isError).toBe(true);
   });
 
+  it("forwards layers to the provider and rejects an unknown layer at the schema boundary", async () => {
+    const fetch = stubJSON([]);
+    const client = await connectTestClient();
+
+    const response = await client.callTool({
+      name: "maps_geocode",
+      arguments: { query: "Supreme Court", layers: ["poi"], provider: "openstreetmap" },
+    });
+    expect(response.isError).not.toBe(true);
+    expect(String(fetch.mock.calls[0]?.[0])).toContain("layer=poi");
+
+    const rejected = await client.callTool({
+      name: "maps_geocode",
+      arguments: { query: "Supreme Court", layers: ["railway"], provider: "openstreetmap" },
+    });
+    expect(rejected.isError).toBe(true);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it.each(["", "   "])(
     "rejects an empty-like provider instead of selecting a default",
     async (provider) => {

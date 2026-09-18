@@ -6,13 +6,14 @@ export type {
   BoundingBox,
   GeoAddress,
   GeoLocation,
+  GeocodeLayer,
   GeocodeOptions,
   ProviderCapabilities,
   ProviderConfig,
   ReverseGranularity,
   ReverseOptions,
 } from "./core/types.ts";
-export { REVERSE_GRANULARITIES, clampMaxResults } from "./core/types.ts";
+export { GEOCODE_LAYERS, REVERSE_GRANULARITIES, clampMaxResults } from "./core/types.ts";
 export {
   assertCoordinates,
   bearingBetween,
@@ -23,7 +24,13 @@ export {
   parseCoordinates,
 } from "./core/coordinates.ts";
 export type { GeoPoint } from "./core/coordinates.ts";
-export { Provider, assertAddress, assertQuery, requireOperation } from "./core/provider.ts";
+export {
+  Provider,
+  assertAddress,
+  assertLayers,
+  assertQuery,
+  requireOperation,
+} from "./core/provider.ts";
 export type { ProviderConstructor, ProviderOperation } from "./core/provider.ts";
 export {
   MapsError,

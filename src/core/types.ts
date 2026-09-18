@@ -53,6 +53,16 @@ export interface GeoLocation {
   raw?: Record<string, unknown>;
 }
 
+/**
+ * Place layers accepted as a forward-geocoding filter: `address` covers streets, house numbers,
+ * inhabited places, and administrative boundaries, `poi` named points of interest such as
+ * buildings, shops, and stations, `natural` rivers, lakes, and mountains.
+ */
+export const GEOCODE_LAYERS = ["address", "poi", "natural"] as const;
+
+/** One entry of `GEOCODE_LAYERS`. */
+export type GeocodeLayer = (typeof GEOCODE_LAYERS)[number];
+
 /** Options for forward geocoding (place or address to coordinates). */
 export interface GeocodeOptions {
   /** Max results; providers clamp to their own maximum */
@@ -61,6 +71,11 @@ export interface GeocodeOptions {
   countryCodes?: string[];
   /** Preferred language for result names (BCP 47, for example "pl") */
   language?: string;
+  /**
+   * Keep only places from these layers, for example `["poi"]` turns a landmark query that
+   * drowns in street-name matches into the building itself. Omitted or empty means every layer.
+   */
+  layers?: GeocodeLayer[];
 }
 
 /** Result granularity accepted by reverse geocoding, coarsest first. */

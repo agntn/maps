@@ -25,6 +25,23 @@ const WARSAW_RESULT = {
   ],
 };
 
+/** Shapes from the Geocoding API's address types table, one per layer. */
+const SUPREME_COURT_RESULT = {
+  formatted_address: "1 First St NE, Washington, DC 20543, USA",
+  geometry: { location: { lat: 38.8906, lng: -77.0044 } },
+  types: ["establishment", "point_of_interest"],
+};
+const SUPREME_COURT_STREET = {
+  formatted_address: "Supreme Ct, Los Angeles, CA 90031, USA",
+  geometry: { location: { lat: 34.0773, lng: -118.1946 } },
+  types: ["route"],
+};
+const POTOMAC_RESULT = {
+  formatted_address: "Potomac River",
+  geometry: { location: { lat: 38.6, lng: -77.1 } },
+  types: ["establishment", "natural_feature", "point_of_interest"],
+};
+
 function createConfigured() {
   return create("googlemaps", { apiKey: "test-key" });
 }
@@ -147,6 +164,40 @@ describe("googlemaps provider", () => {
     const locations = await createConfigured().geocode("Warsaw", { limit: 2 });
 
     expect(locations).toHaveLength(2);
+  });
+
+  it("filters results by layer locally, before the limit is applied", async () => {
+    const fetch = stubJSON({
+      status: "OK",
+      results: [SUPREME_COURT_STREET, SUPREME_COURT_STREET, SUPREME_COURT_RESULT, POTOMAC_RESULT],
+    });
+    const provider = createConfigured();
+
+    const poi = await provider.geocode("Supreme Court", { layers: ["poi"], limit: 1 });
+    const natural = await provider.geocode("Potomac", { layers: ["natural"] });
+    const address = await provider.geocodeAddress({ road: "Supreme Ct" }, { layers: ["address"] });
+    const everything = await provider.geocode("Supreme Court", { layers: [] });
+
+    expect(String(fetch.mock.calls[0]?.[0])).not.toContain("layer");
+    expect(poi.map((location) => location.displayName)).toEqual([
+      "1 First St NE, Washington, DC 20543, USA",
+    ]);
+    expect(natural.map((location) => location.displayName)).toEqual(["Potomac River"]);
+    expect(address).toHaveLength(2);
+    expect(everything).toHaveLength(4);
+  });
+
+  it("rejects an unknown layer without any request", async () => {
+    const fetch = stubJSON({ status: "OK", results: [SUPREME_COURT_RESULT] });
+    const provider = createConfigured();
+
+    await expect(
+      provider.geocode("Supreme Court", { layers: ["manmade" as never] }),
+    ).rejects.toBeInstanceOf(InvalidInputError);
+    await expect(
+      provider.geocodeAddress({ road: "Supreme Ct" }, { layers: ["manmade" as never] }),
+    ).rejects.toBeInstanceOf(InvalidInputError);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("returns an empty list for ZERO_RESULTS", async () => {

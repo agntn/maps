@@ -1,6 +1,7 @@
 /** Zod fragments shared by the MCP server and the AI SDK tools. */
 
 import { z } from "zod";
+import { GEOCODE_LAYERS } from "./types.ts";
 
 /** Optional provider selector; empty-like strings are rejected before selection. */
 export const providerInput = {
@@ -76,3 +77,11 @@ export const countryCodesInput = z
   .array(z.string().trim().length(2))
   .optional()
   .describe("Restrict results to these ISO 3166-1 alpha-2 country codes");
+
+/** Layer filter for forward geocoding; omitted or empty means every layer. */
+export const layersInput = z
+  .array(z.enum(GEOCODE_LAYERS))
+  .optional()
+  .describe(
+    "Keep only these place layers: address (streets, house numbers, cities, boundaries), poi (named buildings, shops, stations), natural (rivers, lakes, mountains); use ['poi'] when a landmark query drowns in street names",
+  );

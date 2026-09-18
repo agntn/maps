@@ -120,6 +120,15 @@ export default function mapsExtension(pi: ExtensionAPI): void {
         description: "Restrict results to these ISO 3166-1 alpha-2 country codes",
       }),
     ),
+    layers: Type.Optional(
+      Type.Array(
+        Type.Union([Type.Literal("address"), Type.Literal("poi"), Type.Literal("natural")]),
+        {
+          description:
+            "Keep only these place layers: address (streets, house numbers, cities, boundaries), poi (named buildings, shops, stations), natural (rivers, lakes, mountains); use ['poi'] when a landmark query drowns in street names",
+        },
+      ),
+    ),
     provider: Type.Optional(
       Type.String({
         description:
@@ -133,7 +142,7 @@ export default function mapsExtension(pi: ExtensionAPI): void {
     name: "maps_geocode",
     label: "Maps Geocode",
     description:
-      "Resolve an address or place to geographic coordinates. Returns normalized coordinates, display name, category, and country per match, best match first.",
+      "Resolve an address or place to geographic coordinates. Returns normalized coordinates, display name, category, and country per match, best match first; pass layers ['poi'] when a landmark query returns streets named after it.",
     parameters: geocodeParameters,
     approval: "read",
     renderCall(args, options, theme) {
@@ -145,6 +154,7 @@ export default function mapsExtension(pi: ExtensionAPI): void {
         limit: params.limit,
         language: params.language,
         countryCodes: params.countryCodes,
+        layers: params.layers,
       };
       if (lib.isAllProviders(params.provider)) {
         const outcomes = await lib.geocodeAll(params.query, options);

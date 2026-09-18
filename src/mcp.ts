@@ -21,6 +21,7 @@ import {
   granularityInput,
   languageInput,
   latitudeInput,
+  layersInput,
   limitInput,
   longitudeInput,
   providerInput,
@@ -61,12 +62,13 @@ export function createMcpServer(): McpServer {
         limit: limitInput,
         language: languageInput,
         countryCodes: countryCodesInput,
+        layers: layersInput,
         ...providerInput,
       },
       annotations: { readOnlyHint: true },
     },
-    async ({ query, limit, language, countryCodes, provider }) => {
-      const options = { limit, language, countryCodes };
+    async ({ query, limit, language, countryCodes, layers, provider }) => {
+      const options = { limit, language, countryCodes, layers };
       if (isAllProviders(provider)) {
         return result(serializeOutcomes(await geocodeAll(query, options)));
       }

@@ -13,12 +13,13 @@
 import type {
   GeoAddress,
   GeoLocation,
+  GeocodeLayer,
   GeocodeOptions,
   ProviderCapabilities,
   ProviderConfig,
   ReverseOptions,
 } from "../core/types.ts";
-import { Provider, assertAddress, assertQuery } from "../core/provider.ts";
+import { Provider, assertAddress, assertLayers, assertQuery } from "../core/provider.ts";
 import { buildQuery } from "../core/client.ts";
 import { assertCoordinates } from "../core/coordinates.ts";
 import {
@@ -33,6 +34,20 @@ import { clampMaxResults, compactAddress } from "../core/types.ts";
 
 /** The response is not paginated; the client slices locally. */
 const MAX_RESULTS = 20;
+
+/**
+ * Result `types` that place a hit in the poi layer, from the Geocoding API's address types table.
+ * The API has no request-side layer filter, so `layers` is applied locally after the response.
+ */
+const POI_TYPES = new Set([
+  "point_of_interest",
+  "establishment",
+  "airport",
+  "park",
+  "bus_station",
+  "train_station",
+  "transit_station",
+]);
 
 /** Granularity to the reverse `result_type` filter of the Geocoding API. */
 const GRANULARITY_RESULT_TYPE = {
@@ -84,6 +99,13 @@ function assertOkStatus(data: GoogleResponse): GoogleResult[] {
       throw new MapsError(detail, "googlemaps");
     }
   }
+}
+
+/** Layer of one result, partitioned the way Nominatim does it: natural, then poi, else address. */
+function layerOf(types: string[] = []): GeocodeLayer {
+  if (types.includes("natural_feature")) return "natural";
+  if (types.some((type) => POI_TYPES.has(type))) return "poi";
+  return "address";
 }
 
 function component(raw: GoogleResult, type: string) {
@@ -157,8 +179,19 @@ class GoogleMaps extends Provider {
     return assertOkStatus(await this.getJSON<GoogleResponse>(url));
   }
 
+  /** Apply the local layer filter, normalize, and cut to the requested limit. */
+  private collect(results: GoogleResult[], options?: GeocodeOptions): GeoLocation[] {
+    const layers = options?.layers?.length ? options.layers : undefined;
+    return results
+      .filter((raw) => !layers || layers.includes(layerOf(raw.types)))
+      .map((result) => mapResult(result))
+      .filter((location) => location !== undefined)
+      .slice(0, clampMaxResults(options?.limit, MAX_RESULTS));
+  }
+
   async geocode(query: string, options?: GeocodeOptions): Promise<GeoLocation[]> {
     assertQuery(query, "googlemaps");
+    assertLayers(options?.layers, "googlemaps");
     const components = options?.countryCodes
       ?.map((code) => `country:${code.toUpperCase()}`)
       .join("|");
@@ -167,10 +200,7 @@ class GoogleMaps extends Provider {
       language: options?.language,
       components: components || undefined,
     });
-    return results
-      .map((result) => mapResult(result))
-      .filter((location) => location !== undefined)
-      .slice(0, clampMaxResults(options?.limit, MAX_RESULTS));
+    return this.collect(results, options);
   }
 
   /**
@@ -179,6 +209,7 @@ class GoogleMaps extends Provider {
    */
   async geocodeAddress(address: GeoAddress, options?: GeocodeOptions): Promise<GeoLocation[]> {
     assertAddress(address, "googlemaps");
+    assertLayers(options?.layers, "googlemaps");
     const street = [address.houseNumber, address.road].filter(Boolean).join(" ");
     const components = [
       address.city ? `locality:${address.city}` : undefined,
@@ -194,10 +225,7 @@ class GoogleMaps extends Provider {
       components: components || undefined,
       language: options?.language,
     });
-    return results
-      .map((result) => mapResult(result))
-      .filter((location) => location !== undefined)
-      .slice(0, clampMaxResults(options?.limit, MAX_RESULTS));
+    return this.collect(results, options);
   }
 
   async reverse(

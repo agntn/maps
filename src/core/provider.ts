@@ -1,6 +1,7 @@
 import type {
   GeoAddress,
   GeoLocation,
+  GeocodeLayer,
   GeocodeOptions,
   ProviderCapabilities,
   ProviderConfig,
@@ -9,6 +10,7 @@ import type {
 import { getJSON } from "./client.ts";
 import type { ClientOptions } from "./client.ts";
 import { InvalidInputError, UnsupportedOperationError } from "./errors.ts";
+import { GEOCODE_LAYERS } from "./types.ts";
 
 /**
  * Common API for geocoding backends.
@@ -82,6 +84,22 @@ export function assertAddress(address: GeoAddress, provider: string): void {
   );
   if (!hasContent) {
     throw new InvalidInputError("address needs at least one non-empty field", provider);
+  }
+}
+
+/**
+ * Reject a layer outside `GEOCODE_LAYERS` before any request is sent, so a host that skips
+ * schema validation gets the same answer as one that enforces it.
+ *
+ * @throws {InvalidInputError} When `layers` names a layer the library does not define.
+ */
+export function assertLayers(layers: readonly string[] | undefined, provider: string): void {
+  const unknown = layers?.find((layer) => !GEOCODE_LAYERS.includes(layer as GeocodeLayer));
+  if (unknown !== undefined) {
+    throw new InvalidInputError(
+      `unknown layer: ${unknown} (use ${GEOCODE_LAYERS.join(", ")})`,
+      provider,
+    );
   }
 }
 

@@ -113,6 +113,35 @@ describe("openstreetmap provider", () => {
     expect(url).toContain("countrycodes=pl%2Cde");
   });
 
+  it("maps layers onto the Nominatim layer param for both geocoding shapes", async () => {
+    const fetch = stubJSON([]);
+    const provider = create("openstreetmap");
+
+    await provider.geocode("Supreme Court", { layers: ["poi", "natural"] });
+    await provider.geocodeAddress({ city: "Warszawa" }, { layers: ["address"] });
+    await provider.geocode("Supreme Court", { layers: [] });
+
+    expect(String(fetch.mock.calls[0]?.[0])).toContain("layer=poi%2Cnatural");
+    expect(String(fetch.mock.calls[1]?.[0])).toContain("layer=address");
+    expect(String(fetch.mock.calls[2]?.[0])).not.toContain("layer=");
+  });
+
+  it("rejects an unknown layer without any request", async () => {
+    const fetch = stubJSON([]);
+    const provider = create("openstreetmap");
+
+    await expect(
+      provider.geocode("Supreme Court", { layers: ["poi", "railway" as never] }),
+    ).rejects.toMatchObject({
+      name: "InvalidInputError",
+      message: expect.stringContaining("railway"),
+    });
+    await expect(
+      provider.geocodeAddress({ city: "Warszawa" }, { layers: ["railway" as never] }),
+    ).rejects.toBeInstanceOf(InvalidInputError);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("clamps the limit to the Nominatim maximum of 40", async () => {
     const fetch = stubJSON([]);
 

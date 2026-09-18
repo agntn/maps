@@ -78,6 +78,15 @@ describe("maps OMP extension", () => {
     expect(accepts(tool, { query: "Warsaw", limit: 1.5 })).toBe(false);
   });
 
+  it("accepts only the named geocode layers", () => {
+    const tool = requireTool(registerExtensionTools().tools, "maps_geocode");
+
+    expect(accepts(tool, { query: "Warsaw", layers: ["poi", "natural"] })).toBe(true);
+    expect(accepts(tool, { query: "Warsaw", layers: [] })).toBe(true);
+    expect(accepts(tool, { query: "Warsaw", layers: ["railway"] })).toBe(false);
+    expect(accepts(tool, { query: "Warsaw", layers: "poi" })).toBe(false);
+  });
+
   it("bounds reverse coordinates to valid WGS 84 ranges", () => {
     const tool = requireTool(registerExtensionTools().tools, "maps_reverse");
 

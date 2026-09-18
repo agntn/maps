@@ -71,6 +71,17 @@ describe("maps Pi extension", () => {
     expect(Value.Check(tool.parameters, { latitude: 52.23 })).toBe(false);
   });
 
+  it("accepts only the named geocode layers", () => {
+    const tool = requireTool(registerExtensionTools(), "maps_geocode");
+
+    expect(Value.Check(tool.parameters, { query: "Warsaw", layers: ["poi", "natural"] })).toBe(
+      true,
+    );
+    expect(Value.Check(tool.parameters, { query: "Warsaw", layers: [] })).toBe(true);
+    expect(Value.Check(tool.parameters, { query: "Warsaw", layers: ["railway"] })).toBe(false);
+    expect(Value.Check(tool.parameters, { query: "Warsaw", layers: "poi" })).toBe(false);
+  });
+
   it("accepts only the named reverse granularities", () => {
     const tool = requireTool(registerExtensionTools(), "maps_reverse");
 

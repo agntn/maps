@@ -1,7 +1,7 @@
 /**
  * CLI subprocess gate: every subcommand exercised end to end against the built binary.
  *
- * Runs the error paths and local commands offline; three live Nominatim calls (spaced past the
+ * Runs the error paths and local commands offline; live Nominatim calls (spaced past the
  * 1 req/s policy) prove the network path. Set MAPS_EVAL_OFFLINE=1 to skip the live block.
  */
 import { spawnSync } from "node:child_process";
@@ -92,6 +92,13 @@ check(
   badGranularity.stderr,
 );
 
+const badLayer = run(["geocode", "Supreme Court", "--layer", "poi,railway"]);
+check(
+  "geocode rejects an unknown layer",
+  badLayer.status === 1 && badLayer.stderr.includes("Invalid layer: railway"),
+  badLayer.stderr,
+);
+
 for (const sub of ["geocode", "address", "reverse", "distance", "providers"]) {
   const help = run([sub, "--help"]);
   check(`${sub} --help exits 0`, help.status === 0, help.stderr);
@@ -136,6 +143,15 @@ if (LIVE) {
       coarse.stdout.includes("Warszawa") &&
       !coarse.stdout.includes("Plac Defilad"),
     coarse.stdout || coarse.stderr,
+  );
+  await sleep(1100);
+  const landmark = run(["geocode", "United States Supreme Court", "--layer", "poi", "-n", "3"]);
+  check(
+    "live poi layer surfaces the court building instead of streets named after it",
+    landmark.status === 0 &&
+      landmark.stdout.includes("Supreme Court of the United States") &&
+      !landmark.stdout.includes("Montecito Heights"),
+    landmark.stdout || landmark.stderr,
   );
   await sleep(1100);
   const fallback = run(["geocode", "Rynek, Wrocław", "-n", "1"], {
