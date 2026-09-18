@@ -31,6 +31,11 @@ const SUPREME_COURT_RESULT = {
   geometry: { location: { lat: 38.8906, lng: -77.0044 } },
   types: ["establishment", "point_of_interest"],
 };
+const NAMED_BUILDING_RESULT = {
+  formatted_address: "Thurgood Marshall Federal Judiciary Building, Washington, DC, USA",
+  geometry: { location: { lat: 38.8974, lng: -77.0066 } },
+  types: ["premise"],
+};
 const SUPREME_COURT_STREET = {
   formatted_address: "Supreme Ct, Los Angeles, CA 90031, USA",
   geometry: { location: { lat: 34.0773, lng: -118.1946 } },
@@ -169,11 +174,17 @@ describe("googlemaps provider", () => {
   it("filters results by layer locally, before the limit is applied", async () => {
     const fetch = stubJSON({
       status: "OK",
-      results: [SUPREME_COURT_STREET, SUPREME_COURT_STREET, SUPREME_COURT_RESULT, POTOMAC_RESULT],
+      results: [
+        SUPREME_COURT_STREET,
+        SUPREME_COURT_STREET,
+        SUPREME_COURT_RESULT,
+        NAMED_BUILDING_RESULT,
+        POTOMAC_RESULT,
+      ],
     });
     const provider = createConfigured();
 
-    const poi = await provider.geocode("Supreme Court", { layers: ["poi"], limit: 1 });
+    const poi = await provider.geocode("Supreme Court", { layers: ["poi"], limit: 2 });
     const natural = await provider.geocode("Potomac", { layers: ["natural"] });
     const address = await provider.geocodeAddress({ road: "Supreme Ct" }, { layers: ["address"] });
     const everything = await provider.geocode("Supreme Court", { layers: [] });
@@ -181,10 +192,11 @@ describe("googlemaps provider", () => {
     expect(String(fetch.mock.calls[0]?.[0])).not.toContain("layer");
     expect(poi.map((location) => location.displayName)).toEqual([
       "1 First St NE, Washington, DC 20543, USA",
+      "Thurgood Marshall Federal Judiciary Building, Washington, DC, USA",
     ]);
     expect(natural.map((location) => location.displayName)).toEqual(["Potomac River"]);
     expect(address).toHaveLength(2);
-    expect(everything).toHaveLength(4);
+    expect(everything).toHaveLength(5);
   });
 
   it("rejects an unknown layer without any request", async () => {

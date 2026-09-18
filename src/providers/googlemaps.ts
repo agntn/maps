@@ -36,12 +36,14 @@ import { clampMaxResults, compactAddress } from "../core/types.ts";
 const MAX_RESULTS = 20;
 
 /**
- * Result `types` that place a hit in the poi layer, from the Geocoding API's address types table.
- * The API has no request-side layer filter, so `layers` is applied locally after the response.
+ * Result `types` that place a hit in the poi layer, from the Geocoding API's address types table;
+ * `premise` is there because a named building can come back with that type alone. The API has no
+ * request-side layer filter, so `layers` is applied locally after the response.
  */
 const POI_TYPES = new Set([
   "point_of_interest",
   "establishment",
+  "premise",
   "airport",
   "park",
   "bus_station",
