@@ -11,17 +11,24 @@
 
 You want a latitude and longitude, not another afternoon mapping JSON fields. Nominatim calls it `lon`, Google calls it `lng`. Maps gives your scripts and agents the same result shape from either provider.
 
-## Start with a place
+## ✨ Features
 
-Requires **Node.js 24+**. **Not published to npm yet.** Use the [source checkout](#development) for now. Registry commands and agent installs need a release first.
+- 📍 **Place names or address parts in.** Search free text, or pass a structured address without building a query string yourself.
+- 🧩 **One result shape out.** WGS 84 coordinates, with address fields and a bounding box when available.
+- 🎯 **A narrower search.** Filter by country or layer: `address`, `poi`, `natural`. Ask for reverse results at country, state, city, street or building level.
+- 📏 **Distance and bearing, offline.** Great-circle distance in meters and initial bearing in degrees. No provider involved.
+- 🤖 **A choice of interfaces.** CLI, TypeScript, MCP, Pi, OMP and Vercel AI SDK tools.
+- 🔀 **Two opinions on one place.** Compare Google and Nominatim side by side. A failed lookup stays visible too.
 
-After publication:
+## 📦 Install
 
 ```bash
 pnpm add @agntn/maps
 ```
 
-Or run a lookup without adding it to your project:
+Node.js 24 or newer. The npm release is pending, so registry installs need publication first. Until then, use the [source checkout](#development).
+
+## 🚀 First call
 
 ```bash
 npx @agntn/maps geocode "Pałac Kultury i Nauki, Warszawa" -p openstreetmap -l en -n 1
@@ -39,17 +46,22 @@ Data: [© OpenStreetMap contributors, ODbL](https://www.openstreetmap.org/copyri
 
 No API key needed for this lookup. Public Nominatim allows **at most one request per second across your application**. Space out calls yourself: Maps doesn't throttle them. No bulk jobs or autocomplete against that instance. Read its [usage policy](https://operations.osmfoundation.org/policies/nominatim/) before using it, and don't send confidential data.
 
-## What you get
-
-- **Place names or address parts in.** Search free text, or pass a structured address without building a query string yourself.
-- **One result shape out.** WGS 84 coordinates, with address fields and a bounding box when available.
-- **A narrower search.** Filter by country or layer: `address`, `poi`, `natural`. Ask for reverse results at country, state, city, street or building level.
-- **Distance and bearing, offline.** Great-circle distance in meters and initial bearing in degrees. No provider involved.
-- **A choice of interfaces.** CLI, TypeScript, MCP, Pi, OMP and Vercel AI SDK tools.
-
-## From the terminal
-
 After a registry install, use `pnpm exec maps` for the commands below. In a built checkout, replace `maps` with `node dist/cli.mjs`.
+
+How far is Kraków from Warsaw? This one stays offline:
+
+```bash
+maps distance 52.2297,21.0122 50.0647,19.9450
+```
+
+```text
+Distance: 251.98 km (251977 m)
+Bearing: 197.6°
+```
+
+Warsaw to Kraków, from the local build. That's across a sphere, not along the motorway. Your car may have objections.
+
+### Commands
 
 | Command     | Use it for                     | Example                                                |
 | ----------- | ------------------------------ | ------------------------------------------------------ |
@@ -64,33 +76,7 @@ Use `-p` for a provider and `-l` for a preferred language. Forward searches acce
 
 A negative latitude needs a separator: `maps reverse -- -33.86,151.21`.
 
-### How far, without asking anyone
-
-```bash
-maps distance 52.2297,21.0122 50.0647,19.9450
-```
-
-```text
-Distance: 251.98 km (251977 m)
-Bearing: 197.6°
-```
-
-Warsaw to Kraków, from the local build. That's across a sphere, not along the motorway. Maps doesn't provide routes, travel times or map tiles.
-
-## Pick a provider
-
-| Key             | Credentials               | Forward result cap |
-| --------------- | ------------------------- | ------------------ |
-| `openstreetmap` | None for public Nominatim | 40                 |
-| `googlemaps`    | `GOOGLE_MAPS_API_KEY`     | 20                 |
-
-CLI and agent tools select Google when its key is configured, otherwise OpenStreetMap. They fall back on auth, billing, rate-limit errors or unsupported operations. Other failures propagate. An explicit provider is never replaced. Pass `-p all` in the CLI to compare providers in parallel, with errors kept beside successful results.
-
-For Google, enable the Geocoding API and supply its key through the environment. Follow [Google's usage and attribution rules](https://developers.google.com/maps/documentation/geocoding/policies). Maps redacts secret query parameters from error messages, including Google's `key` parameter.
-
-For regular or bulk Nominatim work, use your own instance through `create("openstreetmap", { baseUrl })`. Maps sends an identifying User-Agent. Provider limits still apply when a call falls back or uses `all`.
-
-## In TypeScript
+## 🧠 Library
 
 ```typescript
 import { create, distanceBetween, parseCoordinates } from "@agntn/maps";
@@ -104,32 +90,26 @@ const to = parseCoordinates("50.0647,19.9450");
 console.log(distanceBetween(from, to));
 ```
 
-Already have street and city fields? Use `provider.geocodeAddress()`. Going the other way? Use `provider.reverse(latitude, longitude)`. Direct provider calls don't switch backends. Choose `geocodeWithFallback` for that, or `geocodeAll` to compare them. Structured-address and reverse variants are exported too.
+Have address parts? Use `provider.geocodeAddress()`. Coordinates? Use `provider.reverse(latitude, longitude)`. Direct calls stick to one provider. For automatic fallback, use `geocodeWithFallback`. For comparison, use `geocodeAll`. Both have structured-address and reverse variants.
 
-See the [public exports](./src/index.ts), [options and result types](./src/core/types.ts), and [provider capabilities](./src/core/provider.ts). Coordinate helpers validate ranges before reverse requests. Address fields are optional, so don't assume every result has a postcode.
+Address fields are optional. Check `capabilities` for custom providers. Coordinate helpers validate ranges before reverse requests.
 
-## Give your agent a map, minus the map
+[Public exports](./src/index.ts) · [Options and results](./src/core/types.ts) · [Provider contract](./src/core/provider.ts)
 
-### MCP
+## 🗺️ Providers
 
-For clients using an `mcpServers` configuration, after publication:
+| Key             | Credentials               | Forward result cap |
+| --------------- | ------------------------- | ------------------ |
+| `openstreetmap` | None for public Nominatim | 40                 |
+| `googlemaps`    | `GOOGLE_MAPS_API_KEY`     | 20                 |
 
-```json
-{
-  "mcpServers": {
-    "maps": {
-      "command": "npx",
-      "args": ["-y", "@agntn/maps", "mcp"]
-    }
-  }
-}
-```
+CLI and agent tools select Google when its key is configured, otherwise OpenStreetMap. They fall back on auth, billing, rate-limit errors or unsupported operations. Other failures propagate. An explicit provider is never replaced. Pass `-p all` in the CLI to compare providers in parallel, with errors kept beside successful results.
 
-From a checkout, use `node` as the command. Set `args` to the absolute path of `dist/cli.mjs`, followed by `mcp`.
+For Google, enable the Geocoding API and supply its key through the environment. Follow [Google's usage and attribution rules](https://developers.google.com/maps/documentation/geocoding/policies). Maps redacts secret query parameters from error messages, including Google's `key` parameter.
 
-Five read-only tools: `maps_providers`, `maps_geocode`, `maps_geocode_address`, `maps_reverse` and `maps_distance`. Geocoding results omit the provider's original record by default. Pass `raw: true` when you need fields like `osm_id` or `place_id`. Hosts managing their own transport can import `createMcpServer` from `@agntn/maps/mcp`.
+For regular or bulk Nominatim work, use your own instance through `create("openstreetmap", { baseUrl })`. Maps sends an identifying User-Agent. Provider limits still apply when a call falls back or uses `all`.
 
-### Pi and OMP
+## 🤖 Agents
 
 After publication, pick your host:
 
@@ -138,25 +118,48 @@ pi install npm:@agntn/maps
 omp install @agntn/maps
 ```
 
-Both expose the same five tools. From a source checkout, use `pi install .` or `omp install .` instead. Build first. See the [Pi extension](./packages/pi/extensions/maps.ts) and [OMP extension](./packages/omp/extensions/maps.ts).
+Or add Maps to an MCP client:
 
-### Vercel AI SDK
+```json
+{
+  "mcpServers": {
+    "maps": { "command": "npx", "args": ["-y", "@agntn/maps", "mcp"] }
+  }
+}
+```
 
-Install `ai` alongside Maps to use `@agntn/maps/ai`. It exports `geocodeTool`, `geocodeAddressTool`, `reverseTool`, `distanceTool` and `providersTool`. The geocoding tools accept the same `raw` flag as MCP. See the [tool definitions](./src/ai.ts) for input and output shapes.
+Five read-only tools: `maps_providers`, `maps_geocode`, `maps_geocode_address`, `maps_reverse` and `maps_distance`. Same five in Pi and OMP. MCP geocoding results omit the original provider record. Need `osm_id` or `place_id`? Pass `raw: true`. No need to carry the whole suitcase for a postcode.
 
-## Development
+With a built checkout, use `pi install .` or `omp install .`. For MCP, use `node` with the absolute path to `dist/cli.mjs`, followed by `mcp`.
+
+Using Vercel AI SDK? Install `ai` too. `@agntn/maps/ai` exports `geocodeTool`, `geocodeAddressTool`, `reverseTool`, `distanceTool` and `providersTool`. The same `raw` flag works there. Bring your own MCP transport with the `@agntn/maps/mcp` export, `createMcpServer`.
+
+[MCP server](./src/mcp.ts) · [AI SDK tools](./src/ai.ts) · [Pi](./packages/pi/extensions/maps.ts) · [OMP](./packages/omp/extensions/maps.ts)
+
+## 🚫 What this does not do
+
+No routes, traffic estimates or map tiles. Distance means great-circle distance, not driving distance. Finding an address doesn't validate it for postal delivery either.
+
+## 🧩 Adding a provider
+
+Got another geocoder? The [Nominatim implementation](./src/providers/openstreetmap.ts) shows the whole adapter, including its `register()` call. Yours needs the same [Provider contract](./src/core/provider.ts) and an import in [the provider index](./src/providers/index.ts).
+
+<a id="development"></a>
+
+## 🛠️ Development
 
 From this repository's checkout:
 
 ```bash
 pnpm install
-pnpm build
-node dist/cli.mjs geocode "Pałac Kultury i Nauki, Warszawa" -p openstreetmap -l en -n 1
+pnpm build       # Build the library, CLI, MCP and AI SDK entrypoints
+pnpm fmt         # Apply lint fixes and formatting
+pnpm lint        # Check lint and formatting
+pnpm typecheck   # Check the library and extensions
+pnpm test        # Run mocked unit tests
 ```
 
-`pnpm test` runs mocked unit tests. `pnpm lint` checks lint and formatting, and `pnpm typecheck` checks the library and extensions. `pnpm fmt` applies formatting and lint fixes.
-
-For CLI and MCP integration tests without live requests:
+Try the CLI with `node dist/cli.mjs` in place of `maps`. For integration checks without live geocoding:
 
 ```bash
 MAPS_EVAL_OFFLINE=1 pnpm test:cli
@@ -164,12 +167,10 @@ MAPS_EVAL_OFFLINE=1 pnpm test:mcp
 pnpm test:packed
 ```
 
-Adding a provider? Start with the [base class](./src/core/provider.ts) and [Nominatim implementation](./src/providers/openstreetmap.ts). Register it in [the provider index](./src/providers/index.ts).
-
-## Thanks
+## 💛 Thanks
 
 Built with support from [Claude for Open Source](https://claude.com/contact-sales/claude-for-oss) and [Codex for Open Source](https://developers.openai.com/community/codex-for-oss). Thanks for giving small packages room to grow.
 
-## License
+## 📄 License
 
 [MIT](./LICENSE) covers the code. Provider data keeps its own licensing and attribution requirements.
