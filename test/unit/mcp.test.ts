@@ -120,6 +120,89 @@ describe("Maps MCP server", () => {
     ]);
   });
 
+  it.each([
+    {
+      tool: "maps_geocode",
+      arguments: { query: "Warszawa", provider: "openstreetmap" },
+      body: [{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska", osm_id: 336075 }],
+    },
+    {
+      tool: "maps_geocode_address",
+      arguments: { city: "Warszawa", provider: "openstreetmap" },
+      body: [{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska", osm_id: 336075 }],
+    },
+    {
+      tool: "maps_reverse",
+      arguments: { latitude: 52.23, longitude: 21.01, provider: "openstreetmap" },
+      body: { lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska", osm_id: 336075 },
+    },
+  ])(
+    "sends the provider record of $tool only when raw is requested",
+    async ({ tool, arguments: args, body }) => {
+      stubJSON(body);
+      const client = await connectTestClient();
+
+      const trimmed = await client.callTool({ name: tool, arguments: args });
+      expect(trimmed.isError).not.toBe(true);
+      expect(trimmed.content).toEqual([
+        {
+          type: "text",
+          text: expect.stringContaining('"latitude": 52.23'),
+        },
+      ]);
+      expect(trimmed.content).toEqual([
+        {
+          type: "text",
+          text: expect.not.stringContaining('"raw"'),
+        },
+      ]);
+
+      const full = await client.callTool({ name: tool, arguments: { ...args, raw: true } });
+      expect(full.isError).not.toBe(true);
+      expect(full.content).toEqual([
+        {
+          type: "text",
+          text: expect.stringMatching(/"raw": \{[\s\S]*"osm_id": 336075/),
+        },
+      ]);
+    },
+  );
+
+  it("applies the raw flag to every outcome of a comparison", async () => {
+    stubJSON([{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska", osm_id: 336075 }]);
+    const client = await connectTestClient();
+
+    const trimmed = await client.callTool({
+      name: "maps_geocode",
+      arguments: { query: "Warszawa", provider: "all" },
+    });
+    expect(trimmed.isError).not.toBe(true);
+    expect(trimmed.content).toEqual([
+      {
+        type: "text",
+        text: expect.stringMatching(/"latitude": 52.23[\s\S]*"provider": "googlemaps"/),
+      },
+    ]);
+    expect(trimmed.content).toEqual([
+      {
+        type: "text",
+        text: expect.not.stringContaining('"raw"'),
+      },
+    ]);
+
+    const full = await client.callTool({
+      name: "maps_geocode",
+      arguments: { query: "Warszawa", provider: "all", raw: true },
+    });
+    expect(full.isError).not.toBe(true);
+    expect(full.content).toEqual([
+      {
+        type: "text",
+        text: expect.stringMatching(/"osm_id": 336075[\s\S]*"provider": "googlemaps"/),
+      },
+    ]);
+  });
+
   it("computes a distance locally without any provider or network", async () => {
     const client = await connectTestClient();
 

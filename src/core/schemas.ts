@@ -39,6 +39,16 @@ export const limitInput = z
   .optional()
   .describe("Max results; providers cap this at 20-40 and silently truncate");
 
+/** Opt-in provider record; the normalized fields already carry what a caller usually needs. */
+export const rawInput = {
+  raw: z
+    .boolean()
+    .optional()
+    .describe(
+      "Include the provider's own record of each result as raw, for fields the normalized shape leaves out, such as Nominatim's osm_id, name and importance or Google's place_id and location_type. Defaults to false.",
+    ),
+};
+
 /** Preferred result language. */
 export const languageInput = z
   .string()

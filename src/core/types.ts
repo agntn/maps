@@ -53,6 +53,18 @@ export interface GeoLocation {
   raw?: Record<string, unknown>;
 }
 
+/** Copy of a result without the provider's record; the JSON tools send that only on request. */
+export function trimLocation(location: GeoLocation, keepRaw = false): GeoLocation {
+  if (keepRaw) return location;
+  const { raw: _raw, ...trimmed } = location;
+  return trimmed;
+}
+
+/** `trimLocation` over a result list. */
+export function trimLocations(locations: GeoLocation[], keepRaw = false): GeoLocation[] {
+  return keepRaw ? locations : locations.map((location) => trimLocation(location));
+}
+
 /**
  * Place layers accepted as a forward-geocoding filter: `address` covers streets, house numbers,
  * inhabited places, and administrative boundaries, `poi` named points of interest such as
