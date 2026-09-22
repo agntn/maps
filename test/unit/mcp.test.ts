@@ -203,6 +203,32 @@ describe("Maps MCP server", () => {
     ]);
   });
 
+  it("returns a numeric distance for nearly antipodal points", async () => {
+    const client = await connectTestClient();
+    const response = await client.callTool({
+      name: "maps_distance",
+      arguments: {
+        from: { latitude: 49.03965844307095, longitude: -120.07562443614006 },
+        to: { latitude: -49.03965845245431, longitude: 59.92437556385994 },
+      },
+    });
+    expect(response.isError).not.toBe(true);
+    expect(response.content).toEqual([
+      {
+        type: "text",
+        text: JSON.stringify(
+          {
+            meters: 20015114.442035925,
+            formatted: "20015.11 km (20015114 m)",
+            bearing: 180,
+          },
+          null,
+          2,
+        ),
+      },
+    ]);
+  });
+
   it("computes a distance locally without any provider or network", async () => {
     const client = await connectTestClient();
 
