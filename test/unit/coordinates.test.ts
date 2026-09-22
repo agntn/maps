@@ -79,6 +79,14 @@ describe("distanceBetween", () => {
     expect(meters).toBeCloseTo(20015114.4, 0);
   });
 
+  it("keeps nearly antipodal distances finite despite rounding", () => {
+    const from = { latitude: 49.03965844307095, longitude: -120.07562443614006 };
+    const to = { latitude: -49.03965845245431, longitude: 59.92437556385994 };
+    const meters = distanceBetween(from, to);
+    expect(meters).toBeCloseTo(20015114.442, 0);
+    expect(distanceBetween(to, from)).toBe(meters);
+  });
+
   it("rejects out-of-range points before computing", () => {
     expect(() => distanceBetween({ latitude: 91, longitude: 0 }, warsaw)).toThrow(
       InvalidInputError,

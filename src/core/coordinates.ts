@@ -53,6 +53,7 @@ export function assertCoordinates(latitude: number, longitude: number, provider?
  *
  * Haversine on the IUGG mean sphere: within about 0.5% of the ellipsoidal distance, which is
  * plenty for "how far apart are these places" questions. Runs locally - no provider involved.
+ * Clamps roundoff above 1 near antipodes to keep the inverse sine in range.
  *
  * @example
  *   ```ts
@@ -72,7 +73,7 @@ export function distanceBetween(from: GeoPoint, to: GeoPoint): number {
     Math.cos(toRadians(from.latitude)) *
       Math.cos(toRadians(to.latitude)) *
       Math.sin(deltaLongitude / 2) ** 2;
-  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(a));
+  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(Math.min(1, a)));
 }
 
 /**
