@@ -253,6 +253,10 @@ describe("format detection", () => {
   it("asks for the format when a code reads two ways", () => {
     expect(() => decodeCoordinates("jn58td")).toThrow("reads as maidenhead or geohash");
     expect(decodeCoordinates("jn58td", { from: "geohash" }).format).toBe("geohash");
+    expect(() => decodeCoordinates("52.2, 21.2", { from: "dms" })).toThrow(
+      "is written as decimal, not dms",
+    );
+    expect(decodeCoordinates("52 13 46.9, 21 0 43.9", { from: "dms" }).format).toBe("dms");
   });
 
   it("explains what broke in a degree pair instead of giving up on the format", () => {

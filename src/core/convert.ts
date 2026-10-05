@@ -170,6 +170,9 @@ export function decodeCoordinates(
     case "dms":
     case "ddm": {
       const { point, notation } = parseDegrees(text);
+      if (options?.from && notation !== format) {
+        throw new InvalidInputError(`"${text}" is written as ${notation}, not ${format}`);
+      }
       return { format: notation, center: point, canonical: encodeCoordinates(point, notation) };
     }
     case "geohash":
