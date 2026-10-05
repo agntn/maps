@@ -13,6 +13,7 @@ import {
   reverseWithFallback,
   serializeOutcomes,
 } from "./core/all.ts";
+import { convertCoordinates, type CoordinateConversion } from "./core/convert.ts";
 import { bearingBetween, distanceBetween } from "./core/coordinates.ts";
 import { formatDistance } from "./core/format.ts";
 import { requireOperation } from "./core/provider.ts";
@@ -20,6 +21,7 @@ import { providers } from "./core/registry.ts";
 import { isAllProviders, selectProvider } from "./core/resolve.ts";
 import {
   addressInput,
+  convertInput,
   coordinatesInput,
   countryCodesInput,
   granularityInput,
@@ -172,6 +174,16 @@ export const distanceTool: Tool<
       bearing: Math.round(bearingBetween(from, to) * 10) / 10,
     };
   },
+});
+
+const convertInputSchema = z.object(convertInput);
+
+export const convertTool: Tool<z.infer<typeof convertInputSchema>, CoordinateConversion> = tool({
+  description:
+    "Convert a location between coordinate formats: decimal degrees, DMS, DDM, geohash, Maidenhead locator, Plus Code, UTM, MGRS and what3words. Detects the input format and returns the center, cell bounds for grid codes, and every requested format. Local except what3words, which needs WHAT3WORDS_API_KEY.",
+  inputSchema: convertInputSchema,
+  execute: async ({ input, from, to, precision, reference, language }) =>
+    convertCoordinates(input, { from, to, precision, reference, language }),
 });
 
 export const providersTool: Tool<Record<string, never>, { providers: string[] }> = tool({

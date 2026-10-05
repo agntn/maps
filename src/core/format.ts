@@ -1,6 +1,7 @@
 /** Plain-text formatters shared by the CLI, MCP server, AI tools, and agent extensions. */
 
 import type { ProviderOutcome } from "./all.ts";
+import type { CoordinateConversion } from "./convert.ts";
 import type { ProviderListing } from "./registry.ts";
 import type { GeoAddress, GeoLocation } from "./types.ts";
 
@@ -98,4 +99,25 @@ export function formatProviders(listings: ProviderListing[]): string {
     return `  ${listing.name}: ${capabilities || "(no supported maps operations)"}`;
   });
   return `Registered providers (${listings.length}):\n${lines.join("\n")}`;
+}
+
+/** A conversion as text: what the input was read as, its cell, then one line per format. */
+export function formatConversion(conversion: CoordinateConversion): string {
+  const { center, bounds } = conversion;
+  const names = [...Object.keys(conversion.formats), ...Object.keys(conversion.skipped ?? {})];
+  const width = Math.max(...names.map((format) => format.length), 0);
+  return [
+    `${conversion.format} ${conversion.canonical} -> ${center.latitude}, ${center.longitude}`,
+    bounds
+      ? `Cell: ${bounds.south}..${bounds.north} lat, ${bounds.west}..${bounds.east} lon`
+      : null,
+    ...Object.entries(conversion.formats).map(
+      ([format, text]) => `  ${format.padEnd(width)}  ${text}`,
+    ),
+    ...Object.entries(conversion.skipped ?? {}).map(
+      ([format, reason]) => `  ${format.padEnd(width)}  (skipped: ${reason})`,
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

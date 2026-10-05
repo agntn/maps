@@ -13,7 +13,42 @@ export type {
   ReverseGranularity,
   ReverseOptions,
 } from "./core/types.ts";
-export { GEOCODE_LAYERS, REVERSE_GRANULARITIES, clampMaxResults } from "./core/types.ts";
+export {
+  COORDINATE_FORMATS,
+  GEOCODE_LAYERS,
+  REVERSE_GRANULARITIES,
+  clampMaxResults,
+} from "./core/types.ts";
+export type { CoordinateFormat } from "./core/types.ts";
+export {
+  assertCoordinateFormat,
+  convertCoordinates,
+  decodeCoordinates,
+  detectCoordinateFormats,
+  encodeCoordinates,
+} from "./core/convert.ts";
+export type {
+  ConvertOptions,
+  CoordinateConversion,
+  CoordinatePrecision,
+  DecodedCoordinates,
+  LocalCoordinateFormat,
+} from "./core/convert.ts";
+export { formatDdm, formatDecimal, formatDms, parseDegrees } from "./core/degrees.ts";
+export type { DegreeNotation, ParsedDegrees } from "./core/degrees.ts";
+export {
+  decodeGeohash,
+  decodeMaidenhead,
+  decodePlusCode,
+  encodeGeohash,
+  encodeMaidenhead,
+  encodePlusCode,
+} from "./core/grids.ts";
+export type { GridCell } from "./core/grids.ts";
+export { decodeMgrs, encodeMgrs, formatUtm, fromUtm, parseUtm, toUtm } from "./core/utm.ts";
+export type { UtmPosition } from "./core/utm.ts";
+export { WHAT3WORDS_ENV, squareToWhat3words, what3wordsToSquare } from "./core/what3words.ts";
+export type { What3wordsOptions, What3wordsSquare } from "./core/what3words.ts";
 export {
   assertCoordinates,
   bearingBetween,
@@ -61,6 +96,7 @@ export {
 export type { ProviderOutcome, SerializedOutcome } from "./core/all.ts";
 export {
   formatAddressLabel,
+  formatConversion,
   formatDistance,
   formatDistanceBearing,
   formatGeocodeAll,

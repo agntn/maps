@@ -9,6 +9,7 @@ import {
   reverseWithFallback,
   serializeOutcomes,
 } from "./core/all.ts";
+import { convertCoordinates } from "./core/convert.ts";
 import { bearingBetween, distanceBetween } from "./core/coordinates.ts";
 import { formatDistance } from "./core/format.ts";
 import { requireOperation } from "./core/provider.ts";
@@ -16,6 +17,7 @@ import { listProviders } from "./core/registry.ts";
 import { isAllProviders, selectProvider } from "./core/resolve.ts";
 import {
   addressInput,
+  convertInput,
   coordinatesInput,
   countryCodesInput,
   granularityInput,
@@ -176,6 +178,18 @@ export function createMcpServer(): McpServer {
       const bearing = Math.round(bearingBetween(from, to) * 10) / 10;
       return result({ meters, formatted: formatDistance(meters), bearing });
     },
+  );
+
+  server.registerTool(
+    "maps_convert",
+    {
+      description:
+        "Convert a location between coordinate formats: decimal degrees, DMS, DDM, geohash, Maidenhead locator, Plus Code, UTM, MGRS and what3words. Detects the input format, returns the center and, for grid codes, the cell bounds. Computed locally except what3words, which needs WHAT3WORDS_API_KEY",
+      inputSchema: convertInput,
+      annotations: { readOnlyHint: true },
+    },
+    async ({ input, from, to, precision, reference, language }) =>
+      result(await convertCoordinates(input, { from, to, precision, reference, language })),
   );
 
   return server;

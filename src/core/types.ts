@@ -6,7 +6,7 @@ export interface BoundingBox {
   south: number;
   /** Northern latitude bound */
   north: number;
-  /** Western longitude bound */
+  /** Western longitude bound; above `east` when the box crosses the antimeridian */
   west: number;
   /** Eastern longitude bound */
   east: number;
@@ -136,3 +136,19 @@ export function clampMaxResults(limit?: number, max = 10): number {
   if (!limit) return max;
   return Math.min(Math.max(1, Math.round(limit)), max);
 }
+
+/** Every format `convertCoordinates` reads and writes. */
+export const COORDINATE_FORMATS = [
+  "decimal",
+  "dms",
+  "ddm",
+  "geohash",
+  "maidenhead",
+  "pluscode",
+  "utm",
+  "mgrs",
+  "what3words",
+] as const;
+
+/** One coordinate format. */
+export type CoordinateFormat = (typeof COORDINATE_FORMATS)[number];

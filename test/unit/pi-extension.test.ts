@@ -37,6 +37,7 @@ describe("maps Pi extension", () => {
       "maps_geocode_address",
       "maps_reverse",
       "maps_distance",
+      "maps_convert",
       "maps_providers",
     ]);
   });
@@ -120,6 +121,37 @@ describe("maps Pi extension", () => {
 
     expect(result.content).toEqual([
       { type: "text", text: "Distance: 111.20 km (111195 m)\nBearing: 90°" },
+    ]);
+  });
+
+  it("converts coordinates to text without network access", async () => {
+    const tool = requireTool(registerExtensionTools(), "maps_convert");
+    expect(Value.Check(tool.parameters, { input: "ezs42", precision: { geohash: 30 } })).toBe(
+      false,
+    );
+    expect(Value.Check(tool.parameters, { input: "ezs42", to: ["w3w"] })).toBe(false);
+    expect(Value.Check(tool.parameters, { input: "ezs42", precision: { pluscode: 9 } })).toBe(
+      false,
+    );
+
+    const result = await tool.execute(
+      "test",
+      { input: "ezs42", to: ["decimal", "maidenhead"] },
+      undefined,
+      undefined,
+      unusedContext,
+    );
+
+    expect(result.content).toEqual([
+      {
+        type: "text",
+        text: [
+          "geohash ezs42 -> 42.60498046875, -5.60302734375",
+          "Cell: 42.5830078125..42.626953125 lat, -5.625..-5.5810546875 lon",
+          "  decimal     42.604980, -5.603027",
+          "  maidenhead  IN72eo",
+        ].join("\n"),
+      },
     ]);
   });
 

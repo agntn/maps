@@ -5,7 +5,7 @@
 [![license](https://npmx.dev/api/registry/badge/license/@agntn/maps)](https://npmx.dev/package/@agntn/maps)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agntn/maps)
 
-🗺️ Two geocoders, one TypeScript shape. Turn places into coordinates, or ask what's at a coordinate pair.
+🗺️ Two geocoders, one TypeScript shape, nine coordinate formats. Turn places into coordinates, or ask what's at a coordinate pair.
 
 ## Why?
 
@@ -16,6 +16,7 @@ You want a latitude and longitude, not another afternoon mapping JSON fields. No
 - 📍 **Place names or address parts in.** Search free text, or pass a structured address without building a query string yourself.
 - 🧩 **One result shape out.** WGS 84 coordinates, with address fields and a bounding box when available.
 - 🎯 **A narrower search.** Filter by country or layer: `address`, `poi`, `natural`. Ask for reverse results at country, state, city, street or building level.
+- 🧭 **Every coordinate dialect.** DMS, DDM, geohash, Maidenhead, Plus Codes, UTM and MGRS, converted locally. what3words too, if you bring a key.
 - 📏 **Distance and bearing, offline.** Great-circle distance in meters and initial bearing in degrees. No provider involved.
 - 🤖 **A choice of interfaces.** CLI, TypeScript, MCP, Pi, OMP and Vercel AI SDK tools.
 - 🔀 **Two opinions on one place.** Compare Google and Nominatim side by side. A failed lookup stays visible too.
@@ -61,6 +62,27 @@ Bearing: 197.6°
 
 Warsaw to Kraków, from the local build. That's across a sphere, not along the motorway. Your car may have objections.
 
+Got a geohash from a puzzle? Paste it:
+
+```bash
+maps convert ezs42
+```
+
+```text
+geohash ezs42 -> 42.60498046875, -5.60302734375
+Cell: 42.5830078125..42.626953125 lat, -5.625..-5.5810546875 lon
+  decimal     42.604980, -5.603027
+  dms         42°36'17.9"N 5°36'10.9"W
+  ddm         N 42° 36.299' W 005° 36.182'
+  geohash     ezs42
+  maidenhead  IN72eo
+  pluscode    8CJPJ93W+XQ
+  utm         30T 286471 4720235
+  mgrs        30T TN 86471 20234
+```
+
+`ezs42` isn't a point. It's a box about 4.9 km tall on the edge of León. So you get the cell, and every other format describes its middle. No format flag needed. Maps reads the shape. A lowercase `jn58td` fits both a geohash and a locator, though. Then it asks.
+
 ### Commands
 
 | Command     | Use it for                     | Example                                                |
@@ -69,12 +91,13 @@ Warsaw to Kraków, from the local build. That's across a sphere, not along the m
 | `address`   | Address parts you already have | `maps address --road Złota --house 44 --city Warszawa` |
 | `reverse`   | What's at these coordinates?   | `maps reverse 52.2318,21.0067`                         |
 | `distance`  | Distance and initial bearing   | `maps distance 52.2297,21.0122 50.0647,19.9450`        |
+| `convert`   | One location, every format     | `maps convert "N 52° 13.782 E 021° 00.732"`            |
 | `providers` | Provider keys and capabilities | `maps providers`                                       |
 | `mcp`       | A stdio MCP server             | `maps mcp`                                             |
 
 Use `-p` for a provider and `-l` for a preferred language. Forward searches accept `-n` for the result limit. `geocode` also takes `--country us` and `--layer poi`. Looking for a landmark rather than streets named after it? Try `poi`. Each command has `--help`.
 
-A negative latitude needs a separator: `maps reverse -- -33.86,151.21`.
+A negative latitude needs a separator: `maps reverse -- -33.86,151.21`. `convert` takes `--to`, `--precision geohash=5` and `--near` for a short Plus Code like `9G8F+6W`.
 
 ## 🧠 Library
 
@@ -92,6 +115,8 @@ console.log(distanceBetween(from, to));
 
 Have address parts? Use `provider.geocodeAddress()`. Coordinates? Use `provider.reverse(latitude, longitude)`. Direct calls stick to one provider. For automatic fallback, use `geocodeWithFallback`. For comparison, use `geocodeAll`. Both have structured-address and reverse variants.
 
+Coordinates in some other notation? `convertCoordinates("34U EC 0083 8658")` reads it and writes the rest.
+
 Address fields are optional. Check `capabilities` for custom providers. Coordinate helpers validate ranges before reverse requests.
 
 [Public exports](./src/index.ts) · [Options and results](./src/core/types.ts) · [Provider contract](./src/core/provider.ts)
@@ -106,6 +131,8 @@ Address fields are optional. Check `capabilities` for custom providers. Coordina
 CLI and agent tools select Google when its key is configured, otherwise OpenStreetMap. They fall back on auth, billing, rate-limit errors or unsupported operations. Other failures propagate. An explicit provider is never replaced. Pass `-p all` in the CLI to compare providers in parallel, with errors kept beside successful results.
 
 For Google, enable the Geocoding API and supply its key through the environment. Follow [Google's usage and attribution rules](https://developers.google.com/maps/documentation/geocoding/policies). Maps redacts secret query parameters from error messages, including Google's `key` parameter.
+
+what3words is the one conversion that leaves your machine. Set `WHAT3WORDS_API_KEY` and Maps sends it in a header, never in the URL. Without it, `convert` just skips three words.
 
 For regular or bulk Nominatim work, use your own instance through `create("openstreetmap", { baseUrl })`. Maps sends an identifying User-Agent. Provider limits still apply when a call falls back or uses `all`.
 
@@ -128,17 +155,17 @@ Or add Maps to an MCP client:
 }
 ```
 
-Five read-only tools: `maps_providers`, `maps_geocode`, `maps_geocode_address`, `maps_reverse` and `maps_distance`. Same five in Pi and OMP. MCP geocoding results omit the original provider record. Need `osm_id` or `place_id`? Pass `raw: true`. No need to carry the whole suitcase for a postcode.
+Read-only tools: `maps_providers`, `maps_geocode`, `maps_geocode_address`, `maps_reverse`, `maps_distance` and `maps_convert`. Same set in Pi and OMP. MCP geocoding results omit the original provider record. Need `osm_id` or `place_id`? Pass `raw: true`. No need to carry the whole suitcase for a postcode.
 
 With a built checkout, use `pi install .` or `omp install .`. For MCP, use `node` with the absolute path to `dist/cli.mjs`, followed by `mcp`.
 
-Using Vercel AI SDK? Install `ai` too. `@agntn/maps/ai` exports `geocodeTool`, `geocodeAddressTool`, `reverseTool`, `distanceTool` and `providersTool`. The same `raw` flag works there. Bring your own MCP transport with the `@agntn/maps/mcp` export, `createMcpServer`.
+Using Vercel AI SDK? Install `ai` too. `@agntn/maps/ai` exports `geocodeTool`, `geocodeAddressTool`, `reverseTool`, `distanceTool`, `convertTool` and `providersTool`. The same `raw` flag works there. Bring your own MCP transport with the `@agntn/maps/mcp` export, `createMcpServer`.
 
 [MCP server](./src/mcp.ts) · [AI SDK tools](./src/ai.ts) · [Pi](./packages/pi/extensions/maps.ts) · [OMP](./packages/omp/extensions/maps.ts)
 
 ## 🚫 What this does not do
 
-No routes, traffic estimates or map tiles. Distance means great-circle distance, not driving distance. Finding an address doesn't validate it for postal delivery either.
+No routes, traffic estimates or map tiles. Distance means great-circle distance, not driving distance. Finding an address doesn't validate it for postal delivery either. UTM and MGRS stop at 80°S and 84°N, the poles need UPS.
 
 ## 🧩 Adding a provider
 

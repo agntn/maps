@@ -63,6 +63,7 @@ describe("maps OMP extension", () => {
       "maps_geocode_address",
       "maps_reverse",
       "maps_distance",
+      "maps_convert",
       "maps_providers",
     ]);
     for (const tool of tools.values()) expect(tool.approval).toBe("read");
@@ -103,6 +104,33 @@ describe("maps OMP extension", () => {
     expect(accepts(tool, { from, to: { latitude: 0, longitude: 1 } })).toBe(true);
     expect(accepts(tool, { from })).toBe(false);
     expect(accepts(tool, { from, to: { latitude: 95, longitude: 1 } })).toBe(false);
+  });
+
+  it("bounds conversion formats and precision, then converts locally", async () => {
+    const tool = requireTool(registerExtensionTools().tools, "maps_convert");
+
+    expect(accepts(tool, { input: "ezs42", to: ["mgrs"], precision: { mgrs: 3 } })).toBe(true);
+    expect(accepts(tool, { input: "ezs42", to: ["w3w"] })).toBe(false);
+    expect(accepts(tool, { input: "ezs42", precision: { mgrs: 6 } })).toBe(false);
+    expect(accepts(tool, { input: "ezs42", precision: { maidenhead: 3, pluscode: 11 } })).toBe(
+      false,
+    );
+    expect(accepts(tool, { input: "ezs42", precision: { maidenhead: 4, pluscode: 11 } })).toBe(
+      true,
+    );
+    expect(accepts(tool, { input: "ezs42", precision: { what3words: 1 } })).toBe(false);
+    expect(accepts(tool, {})).toBe(false);
+
+    const result = await tool.execute(
+      "test",
+      { input: "34U EC 0083 8658", to: ["decimal"] },
+      undefined,
+      undefined,
+      unusedContext,
+    );
+    expect((result.content[0] as { text: string }).text).toContain(
+      "  decimal  52.229685, 21.012226",
+    );
   });
 
   it("compares providers side by side when provider is 'all'", async () => {
