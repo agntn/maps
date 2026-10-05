@@ -1,7 +1,5 @@
 /** Maps error hierarchy */
 
-import { FetchError } from "ofetch";
-
 /**
  * Base class for failures surfaced through Maps.
  *
@@ -110,18 +108,18 @@ export class InvalidInputError extends MapsError {
   }
 }
 
-function getFetchErrorUrl(error: FetchError): string | undefined {
-  const request = error.request;
-  return typeof request === "string" ? request : request?.url;
-}
+/** A 4xx or 5xx before `normalizeError` sorts it into the hierarchy. It never leaves the client. */
+export class ResponseError extends Error {
+  readonly status: number;
+  readonly url: string;
+  readonly body: string;
 
-function getFetchErrorBody(error: FetchError): string | undefined {
-  if (typeof error.data === "string") return error.data;
-  if (error.data === undefined) return undefined;
-  try {
-    return JSON.stringify(error.data);
-  } catch {
-    return String(error.data);
+  constructor(status: number, url: string, body: string) {
+    super(`HTTP ${status} from ${url}`);
+    this.status = status;
+    this.url = url;
+    this.body = body;
+    this.name = "ResponseError";
   }
 }
 
@@ -136,10 +134,10 @@ export function normalizeError(error: unknown, provider?: string, requestUrl?: s
 
   const message = error instanceof Error ? error.message : String(error);
   const lowerMessage = message.toLowerCase();
-  const fetchError = error instanceof FetchError ? error : undefined;
+  const response = error instanceof ResponseError ? error : undefined;
   const statusMatch = message.match(/HTTP (\d{3})/i);
-  const status = fetchError?.statusCode ?? Number(statusMatch?.[1] ?? 0);
-  const url = requestUrl ?? (fetchError ? getFetchErrorUrl(fetchError) : undefined);
+  const status = response?.status ?? Number(statusMatch?.[1] ?? 0);
+  const url = requestUrl ?? response?.url;
   const resource = url ?? message;
 
   if (status === 404 || lowerMessage.includes("not found")) {
@@ -166,12 +164,7 @@ export function normalizeError(error: unknown, provider?: string, requestUrl?: s
     lowerMessage.includes("etimedout") ||
     lowerMessage.includes("timeouterror")
   ) {
-    return new HTTPError(
-      status,
-      url ?? "unknown",
-      (fetchError ? getFetchErrorBody(fetchError) : undefined) ?? message,
-      provider,
-    );
+    return new HTTPError(status, url ?? "unknown", response?.body ?? message, provider);
   }
 
   return new MapsError(message, provider);
