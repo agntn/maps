@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { geocodeAddressTool, geocodeTool, reverseTool } from "../../src/ai.ts";
+import { convertTool, geocodeAddressTool, geocodeTool, reverseTool } from "../../src/ai.ts";
 import { stubJSON } from "../helpers.ts";
 
 const callOptions = { toolCallId: "test", messages: [] };
@@ -67,6 +67,14 @@ describe("Maps AI SDK tools", () => {
         { provider: "openstreetmap", result: [{ raw: place }] },
         { provider: "googlemaps", error: expect.stringContaining("Authentication failed") },
       ],
+    });
+  });
+
+  it("convert returns the conversion object", async () => {
+    const result = await convertTool.execute?.({ input: "ezs42", to: ["decimal"] }, callOptions);
+    expect(result).toMatchObject({
+      format: "geohash",
+      formats: { decimal: "42.604980, -5.603027" },
     });
   });
 });

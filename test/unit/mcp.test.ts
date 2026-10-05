@@ -63,6 +63,7 @@ describe("Maps MCP server", () => {
       "maps_geocode_address",
       "maps_reverse",
       "maps_distance",
+      "maps_convert",
     ]);
 
     const response = await client.callTool({ name: "maps_providers", arguments: {} });
@@ -247,6 +248,48 @@ describe("Maps MCP server", () => {
           /"meters": 111195\.0\d+[\s\S]*"formatted": "111\.20 km[\s\S]*"bearing": 90/,
         ),
       },
+    ]);
+  });
+
+  it("converts coordinates locally and returns the cell", async () => {
+    const client = await connectTestClient();
+
+    const response = await client.callTool({
+      name: "maps_convert",
+      arguments: { input: "KO02", to: ["decimal", "pluscode"], precision: { pluscode: 4 } },
+    });
+    expect(response.isError).not.toBe(true);
+    const text = (response.content as Array<{ text: string }>)[0]?.text ?? "";
+    expect(JSON.parse(text)).toEqual({
+      input: "KO02",
+      format: "maidenhead",
+      canonical: "KO02",
+      center: { latitude: 52.5, longitude: 21 },
+      bounds: { south: 52, north: 53, west: 20, east: 22 },
+      formats: { decimal: "52.500000, 21.000000", pluscode: "9G430000+" },
+    });
+  });
+
+  it("rejects a precision key the schema does not know", async () => {
+    const client = await connectTestClient();
+
+    const response = await client.callTool({
+      name: "maps_convert",
+      arguments: { input: "KO02", precision: { what3words: 3 } },
+    });
+    expect(response.isError).toBe(true);
+  });
+
+  it("returns a short Plus Code's reason as a tool error", async () => {
+    const client = await connectTestClient();
+
+    const response = await client.callTool({
+      name: "maps_convert",
+      arguments: { input: "CJ+2VX" },
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content).toEqual([
+      { type: "text", text: expect.stringContaining("pass a reference point") },
     ]);
   });
 

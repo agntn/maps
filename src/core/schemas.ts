@@ -1,7 +1,7 @@
 /** Zod fragments shared by the MCP server and the AI SDK tools. */
 
 import { z } from "zod";
-import { GEOCODE_LAYERS } from "./types.ts";
+import { COORDINATE_FORMATS, GEOCODE_LAYERS } from "./types.ts";
 
 /** Optional provider selector; empty-like strings are rejected before selection. */
 export const providerInput = {
@@ -95,3 +95,67 @@ export const layersInput = z
   .describe(
     "Keep only these place layers: address (streets, house numbers, cities, boundaries), poi (named buildings, shops, stations), natural (rivers, lakes, mountains); use ['poi'] when a landmark query drowns in street names",
   );
+
+const formatInput = z.enum(COORDINATE_FORMATS);
+
+const precisionDigits = (max: number, description: string) =>
+  z.number().int().min(0).max(max).optional().describe(description);
+
+/** Arguments of the coordinate conversion tool. */
+export const convertInput = {
+  input: z
+    .string()
+    .trim()
+    .min(1)
+    .describe(
+      "Coordinates in any supported format: decimal degrees (52.2297, 21.0122), DMS (52°13'46.9\"N 21°0'43.9\"E), DDM (N 52° 13.782 E 021° 00.732), geohash, Maidenhead locator, Plus Code, UTM (34U 500000 5786000), MGRS or a what3words address",
+    ),
+  from: formatInput
+    .optional()
+    .describe(
+      "Format of input; detected when omitted. Needed when a lower case code like jn58td reads as both a geohash and a Maidenhead locator",
+    ),
+  to: z
+    .array(formatInput)
+    .optional()
+    .describe(
+      "Formats to write; omit for every local format, plus what3words when WHAT3WORDS_API_KEY is set. A format that cannot hold the point (UTM past 84°N) fails when asked for and is skipped otherwise",
+    ),
+  precision: z
+    .object({
+      decimal: precisionDigits(10, "Decimal places, default 6"),
+      dms: precisionDigits(4, "Decimal places on seconds, default 1"),
+      ddm: precisionDigits(5, "Decimal places on minutes, default 3"),
+      geohash: z.number().int().min(1).max(22).optional().describe("Characters, default 9"),
+      maidenhead: z
+        .number()
+        .int()
+        .min(2)
+        .max(10)
+        .optional()
+        .describe("Characters: 2, 4, 6, 8 or 10, default 6"),
+      pluscode: z
+        .number()
+        .int()
+        .min(2)
+        .max(15)
+        .optional()
+        .describe("Digits: 2, 4, 6, 8 or 10 to 15, default 10"),
+      utm: precisionDigits(3, "Decimal places on meters, default 0"),
+      mgrs: precisionDigits(5, "Digits per axis, 5 is one meter, default 5"),
+    })
+    .strict()
+    .optional()
+    .describe("Output precision per format; grid inputs keep their own length unless set here"),
+  reference: coordinatesInput
+    .optional()
+    .describe(
+      "A point near the place a short Plus Code like 9G8F+6W belongs to; geocode the town written next to the code",
+    ),
+  language: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe("Language of the what3words output, for example 'pl'"),
+};

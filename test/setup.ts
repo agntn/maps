@@ -3,3 +3,4 @@
  * auto-selection and turn forgotten fetch stubs into live requests on a real account.
  */
 delete process.env.GOOGLE_MAPS_API_KEY;
+delete process.env.WHAT3WORDS_API_KEY;

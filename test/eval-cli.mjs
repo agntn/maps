@@ -13,6 +13,7 @@ const LIVE = process.env.MAPS_EVAL_OFFLINE !== "1";
 /** Credentials are dropped so provider auto-selection stays deterministic. */
 const env = { ...process.env };
 delete env.GOOGLE_MAPS_API_KEY;
+delete env.WHAT3WORDS_API_KEY;
 
 let failures = 0;
 
@@ -57,6 +58,42 @@ check(
   badDistance.stderr,
 );
 
+const convert = run([
+  "convert",
+  "52",
+  "13",
+  "46.9",
+  "N",
+  "21",
+  "0",
+  "43.9",
+  "E",
+  "--to",
+  "maidenhead,mgrs",
+]);
+check("convert exits 0", convert.status === 0, convert.stderr);
+check(
+  "convert reads unquoted DMS and writes the requested formats",
+  convert.stdout.includes("dms 52°13'46.9\"N 21°0'43.9\"E") &&
+    convert.stdout.includes("maidenhead  KO02mf") &&
+    convert.stdout.includes("mgrs        34U EC 00832 86586"),
+  convert.stdout,
+);
+
+const shortPlus = run(["convert", "CJ+2VX"]);
+check(
+  "convert asks for a reference on a short Plus Code",
+  shortPlus.status === 1 && shortPlus.stderr.includes("pass a reference point"),
+  shortPlus.stderr,
+);
+
+const recovered = run(["convert", "CJ+2VX", "--near", "51.37,-1.2178", "--to", "decimal"]);
+check(
+  "convert recovers a short Plus Code near a reference",
+  recovered.status === 0 && recovered.stdout.includes("decimal  51.370113, -1.217766"),
+  recovered.stdout + recovered.stderr,
+);
+
 const badPair = run(["reverse", "52.23"]);
 check(
   "reverse rejects a malformed pair",
@@ -99,7 +136,7 @@ check(
   badLayer.stderr,
 );
 
-for (const sub of ["geocode", "address", "reverse", "distance", "providers"]) {
+for (const sub of ["geocode", "address", "reverse", "distance", "convert", "providers"]) {
   const help = run([sub, "--help"]);
   check(`${sub} --help exits 0`, help.status === 0, help.stderr);
 }

@@ -18,6 +18,7 @@ const main = defineCommand({
     address: () => import("./commands/address.ts").then((m) => m.default),
     reverse: () => import("./commands/reverse.ts").then((m) => m.default),
     distance: () => import("./commands/distance.ts").then((m) => m.default),
+    convert: () => import("./commands/convert.ts").then((m) => m.default),
     providers: () => import("./commands/providers.ts").then((m) => m.default),
     mcp: () => import("./commands/mcp.ts").then((m) => m.default),
   },

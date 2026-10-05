@@ -355,6 +355,97 @@ export default function mapsExtension(pi: ExtensionAPI): void {
     },
   });
 
+  const coordinateFormat = (description: string) =>
+    Type.Union(
+      [
+        Type.Literal("decimal"),
+        Type.Literal("dms"),
+        Type.Literal("ddm"),
+        Type.Literal("geohash"),
+        Type.Literal("maidenhead"),
+        Type.Literal("pluscode"),
+        Type.Literal("utm"),
+        Type.Literal("mgrs"),
+        Type.Literal("what3words"),
+      ],
+      { description },
+    );
+
+  const precisionField = (minimum: number, maximum: number, description: string) =>
+    Type.Optional(Type.Integer({ minimum, maximum, description }));
+
+  const convertParameters = Type.Object({
+    input: Type.String({
+      description:
+        "Coordinates in any supported format: decimal degrees (52.2297, 21.0122), DMS (52°13'46.9\"N 21°0'43.9\"E), DDM (N 52° 13.782 E 021° 00.732), geohash, Maidenhead locator, Plus Code, UTM (34U 500000 5786000), MGRS or a what3words address",
+      minLength: 1,
+    }),
+    from: Type.Optional(
+      coordinateFormat(
+        "Format of input; detected when omitted. Needed when a lower case code like jn58td reads as both a geohash and a Maidenhead locator",
+      ),
+    ),
+    to: Type.Optional(
+      Type.Array(coordinateFormat("Output format"), {
+        description:
+          "Formats to write; omit for every local format, plus what3words when WHAT3WORDS_API_KEY is set",
+      }),
+    ),
+    precision: Type.Optional(
+      Type.Object(
+        {
+          decimal: precisionField(0, 10, "Decimal places, default 6"),
+          dms: precisionField(0, 4, "Decimal places on seconds, default 1"),
+          ddm: precisionField(0, 5, "Decimal places on minutes, default 3"),
+          geohash: precisionField(1, 22, "Characters, default 9"),
+          maidenhead: precisionField(2, 10, "Characters: 2, 4, 6, 8 or 10, default 6"),
+          pluscode: precisionField(2, 15, "Digits: 2, 4, 6, 8 or 10 to 15, default 10"),
+          utm: precisionField(0, 3, "Decimal places on meters, default 0"),
+          mgrs: precisionField(0, 5, "Digits per axis, 5 is one meter, default 5"),
+        },
+        {
+          additionalProperties: false,
+          description:
+            "Output precision per format; grid inputs keep their own length unless set here",
+        },
+      ),
+    ),
+    reference: Type.Optional(
+      pointSchema(
+        "A point near the place a short Plus Code like 9G8F+6W belongs to; geocode the town written next to the code",
+      ),
+    ),
+    language: Type.Optional(
+      Type.String({
+        description: "Language of the what3words output, for example 'pl'",
+        minLength: 1,
+      }),
+    ),
+  });
+
+  pi.registerTool({
+    name: "maps_convert",
+    label: "Maps Convert",
+    description:
+      "Convert a location between coordinate formats: decimal degrees, DMS, DDM, geohash, Maidenhead locator, Plus Code, UTM, MGRS and what3words. Computed locally except what3words, which needs WHAT3WORDS_API_KEY.",
+    parameters: convertParameters,
+    approval: "read",
+    renderCall(args, options, theme) {
+      return statusLine("Maps Convert", String(args.input ?? "").slice(0, 80), options, theme);
+    },
+    async execute(_toolCallId, params): Promise<MapsToolResult> {
+      const lib = await loadLibrary();
+      const conversion = await lib.convertCoordinates(params.input, {
+        from: params.from,
+        to: params.to,
+        precision: params.precision,
+        reference: params.reference,
+        language: params.language,
+      });
+      return textResult(lib.formatConversion(conversion));
+    },
+  });
+
   const providersParameters = Type.Object({});
 
   pi.registerTool({

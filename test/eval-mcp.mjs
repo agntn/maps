@@ -16,6 +16,7 @@ const LIVE = process.env.MAPS_EVAL_OFFLINE !== "1";
 /** Credentials are dropped so provider auto-selection stays deterministic. */
 const env = { ...process.env, DEBUG: "1" };
 delete env.GOOGLE_MAPS_API_KEY;
+delete env.WHAT3WORDS_API_KEY;
 
 let failures = 0;
 
@@ -77,7 +78,7 @@ await client.connect(transport);
 
 const listed = await client.listTools();
 check(
-  "lists the five maps tools",
+  "lists the six maps tools",
   JSON.stringify(listed.tools.map((tool) => tool.name)) ===
     JSON.stringify([
       "maps_providers",
@@ -85,6 +86,7 @@ check(
       "maps_geocode_address",
       "maps_reverse",
       "maps_distance",
+      "maps_convert",
     ]),
   JSON.stringify(listed.tools.map((tool) => tool.name)),
 );
@@ -116,6 +118,19 @@ check(
     firstText(distance).includes('"meters": 111195.0') &&
     firstText(distance).includes('"bearing": 90'),
   firstText(distance),
+);
+
+const convert = await client.callTool({
+  name: "maps_convert",
+  arguments: { input: "ezs42", to: ["decimal", "maidenhead"] },
+});
+check(
+  "convert decodes a geohash cell locally",
+  convert.isError !== true &&
+    firstText(convert).includes('"decimal": "42.604980, -5.603027"') &&
+    firstText(convert).includes('"maidenhead": "IN72eo"') &&
+    firstText(convert).includes('"south": 42.5830078125'),
+  firstText(convert),
 );
 
 const outOfRange = await client.callTool({

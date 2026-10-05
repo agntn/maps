@@ -2,7 +2,7 @@
 
 ## Scope
 
-Unified geocoding provider library. Normalizes forward geocoding (free-form and structured-address input), reverse geocoding, and structured address output across providers, with coordinate validation and local great-circle distance plus bearing (haversine) in core. Exports a CLI (`maps` binary), a programmatic API, an MCP server (`@agntn/maps/mcp`), Vercel AI SDK tools (`@agntn/maps/ai`), and Pi/OMP extensions.
+Unified geocoding provider library. Normalizes forward geocoding (free-form and structured-address input), reverse geocoding, and structured address output across providers, with coordinate validation, local great-circle distance plus bearing (haversine) and coordinate format conversion in core. Exports a CLI (`maps` binary), a programmatic API, an MCP server (`@agntn/maps/mcp`), Vercel AI SDK tools (`@agntn/maps/ai`), and Pi/OMP extensions.
 
 ## Providers
 
@@ -39,6 +39,13 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - Capability gating goes through `requireOperation()` in `core/provider.ts`; text rendering through the `format*` helpers in `core/format.ts` - do not re-implement either per surface
 - Structured geocoding takes the same `GeoAddress` shape the results use; `assertAddress()` rejects an all-empty input, Nominatim gets `street`/`city`/`state`/`postalcode`/`country` params, Google gets house number and street in the free-form `address` param plus the rest as a `components` filter (its filter has no street_number type)
 
+- Coordinate conversion lives in `core/convert.ts` (`convertCoordinates`, `decodeCoordinates`, `encodeCoordinates`, `detectCoordinateFormats`) over `core/degrees.ts` (decimal, DMS, DDM), `core/grids.ts` (geohash, Maidenhead, Plus Code), `core/utm.ts` (UTM and MGRS through Krüger's series to third order, about a millimeter inside a zone) and `core/what3words.ts`. `COORDINATE_FORMATS` sits in `core/types.ts` so schemas don't import the codecs
+- Detection reads the shape: geohash only matches lower case, so an upper case code is a locator or MGRS, and a lower case one matching both throws and asks for `from`. A degree pair that fails detection rethrows the parser's own reason
+- Grid inputs carry `bounds`; every other format is written for the cell center. The input's own format echoes its canonical form unless `precision` names that format. Without `to`, a format that can't hold the point (UTM and MGRS past 84°N or 80°S, the UPS caps) lands in `skipped`; with `to` it throws
+- Plus Code encoding floors `lat * 2.5e7` like Google's reference JS and Java, so it matches them byte for byte and differs from 13 rows of `test_data/encoding.csv` exactly where they do. Short codes need `reference` (`recoverNearest`)
+- MGRS truncates digits and prints `34U EC 0083 8658` with an unpadded zone; GeographicLib writes `34UEC00838658`, and both parse. Decoding picks the 2000 km row cycle that reaches the latitude band and rejects a square whose center falls more than 1° outside it
+- what3words is the only networked format: `WHAT3WORDS_API_KEY` goes in the `X-Api-Key` header, never the URL. A 400 `{ error: { code, message } }` becomes `InvalidInputError` with the API's reason, 401 stays `AuthError`. A default conversion adds three words only when the key is set, and a failed call lands in `skipped` unless the caller aborted. Inputs past 256 characters are refused before any parsing
+
 ## Key files
 
 - `src/core/types.ts` - GeoLocation, GeoAddress, BoundingBox, options, capabilities, config, `clampMaxResults`, `compactAddress`
@@ -50,16 +57,17 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - `src/core/all.ts` - parallel fan-out over every provider (`geocodeAll`, `geocodeAddressAll`, `reverseAll`, `serializeOutcomes`)
 - `src/core/format.ts` - plain-text formatters shared by every output surface, `formatProviders` included
 - `src/core/schemas.ts` - zod input fragments shared by the MCP server and the AI tools
+- `src/core/convert.ts` - format detection, `convertCoordinates` and the per-format codecs it drives (`degrees.ts`, `grids.ts`, `utm.ts`, `what3words.ts`)
 - `src/core/client.ts` - native `fetch` wrapper: `getJSON` parses the body whatever its content type, 15 s timeout joined with the caller's `signal`, no retry, identifying User-Agent. A 4xx or 5xx becomes a `ResponseError`, which `normalizeError()` classifies before it leaves the client. Also `buildQuery`
 - `src/providers/*.ts` - one file per provider, self-registering via `register()`
-- `src/mcp.ts` - `createMcpServer()`, five read-only tools (`maps_distance` computes locally, no provider)
+- `src/mcp.ts` - `createMcpServer()`, read-only tools (`maps_distance` and `maps_convert` compute locally, no provider; what3words aside)
 - `src/ai.ts` - Vercel AI SDK tool surface
 - `src/cli.ts` + `src/commands/*.ts` - citty CLI (lazy subcommands; provider selection via `selectProvider()` from core)
 - `packages/pi/extensions/maps.ts`, `packages/omp/extensions/maps.ts` - agent extensions; type-import from `dist/index.d.mts`. The OMP loader keeps both dynamic imports literal: `existsSync(src)` chooses `import("../../../src/index.ts")` or `import("../../../dist/index.mjs")`. An `import(url.href)` loses dependency resolution in the compiled binary
 
 ## CLI subcommands
 
-`geocode`, `address`, `reverse`, `distance`, `providers`, `mcp` - provider commands support `-p` (provider, `all` included) and `-l` (language); `geocode` adds `-n` (limit), `--country` (comma-separated ISO codes) and `--layer` (comma-separated `GEOCODE_LAYERS`); `address` takes the fields as flags (`--house`, `--road`, `--city`, `--state`, `--postcode`, `--country`); `distance` is local-only and prints bearing too. `reverse` and `distance` take positional `"latitude,longitude"` pairs; a pair starting with a minus needs a `--` separator first, because the argument parser would read it as a flag.
+`geocode`, `address`, `reverse`, `distance`, `convert`, `providers`, `mcp` - provider commands support `-p` (provider, `all` included) and `-l` (language); `geocode` adds `-n` (limit), `--country` (comma-separated ISO codes) and `--layer` (comma-separated `GEOCODE_LAYERS`); `address` takes the fields as flags (`--house`, `--road`, `--city`, `--state`, `--postcode`, `--country`); `distance` is local-only and prints bearing too. `convert` joins every positional into one input, so unquoted DMS works, and takes `--from`, `--to`, `--precision geohash=5,mgrs=3`, `--near "lat,lon"` for short Plus Codes and `-l` for what3words. `reverse` and `distance` take positional `"latitude,longitude"` pairs; a pair starting with a minus needs a `--` separator first, because the argument parser would read it as a flag.
 
 ## Constraints
 
@@ -72,7 +80,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 ## Testing
 
-`pnpm test` (vitest, 11 files / 166 tests, mocked via `vi.stubGlobal("fetch", ...)`; `client.test.ts` also runs the client against a loopback `node:http` server). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
+`pnpm test` (vitest, 12 files / 256 tests, mocked via `vi.stubGlobal("fetch", ...)`; `client.test.ts` also runs the client against a loopback `node:http` server). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` and `WHAT3WORDS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
 
 Subprocess gates in `test/eval-*.mjs`, each runnable on its own:
 
