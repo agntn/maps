@@ -325,7 +325,7 @@ export default function mapsExtension(pi: ExtensionAPI): void {
           decimal: precisionField(0, 10, "Decimal places, default 6"),
           dms: precisionField(0, 4, "Decimal places on seconds, default 1"),
           ddm: precisionField(0, 5, "Decimal places on minutes, default 3"),
-          geohash: precisionField(1, 22, "Characters, default 9"),
+          geohash: precisionField(1, 20, "Characters, default 9"),
           maidenhead: precisionChoice([2, 4, 6, 8, 10], "Characters: 2, 4, 6, 8 or 10, default 6"),
           pluscode: precisionChoice(
             [2, 4, 6, 8, 10, 11, 12, 13, 14, 15],

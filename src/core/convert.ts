@@ -57,7 +57,7 @@ const PRECISIONS: Record<LocalCoordinateFormat, readonly number[]> = {
   ddm: [3, 0, 1, 2, 4, 5],
   geohash: [
     9,
-    ...Array.from({ length: 22 }, (_, index) => index + 1).filter((length) => length !== 9),
+    ...Array.from({ length: 20 }, (_, index) => index + 1).filter((length) => length !== 9),
   ],
   maidenhead: [6, 2, 4, 8, 10],
   pluscode: [10, 2, 4, 6, 8, 11, 12, 13, 14, 15],
@@ -128,7 +128,7 @@ export function detectCoordinateFormats(input: string): CoordinateFormat[] {
   if (isMgrs(text)) found.push("mgrs");
   if (/^[A-R]{2}(?:\d{2}(?:[A-X]{2}(?:\d{2}(?:[A-X]{2})?)?)?)?$/i.test(text))
     found.push("maidenhead");
-  if (/^[0-9b-hjkmnp-z]{1,22}$/.test(text)) found.push("geohash");
+  if (/^[0-9b-hjkmnp-z]{1,20}$/.test(text)) found.push("geohash");
   if (found.length > 0) return found;
   try {
     return [parseDegrees(text).notation];
@@ -219,6 +219,11 @@ export function encodeCoordinates(
   precision?: number,
 ): string {
   assertCoordinateFormat(format);
+  if ((format as CoordinateFormat) === "what3words") {
+    throw new InvalidInputError(
+      "what3words is not a local format; use convertCoordinates with a key",
+    );
+  }
   assertCoordinates(point.latitude, point.longitude);
   const value = precision ?? (PRECISIONS[format][0] as number);
   assertPrecision(format, value);

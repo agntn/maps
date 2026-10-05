@@ -30,11 +30,11 @@ function wrapLongitude(longitude: number): number {
 
 const GEOHASH_ALPHABET = "0123456789bcdefghjkmnpqrstuvwxyz";
 
-/** Longest geohash read or written; 12 characters already pin a cell a few centimeters wide. */
-const GEOHASH_MAX_LENGTH = 22;
+/** Longest geohash read or written; at 21 characters doubles can't hold the cell edges apart. */
+const GEOHASH_MAX_LENGTH = 20;
 
 /**
- * Geohash of a point, `length` characters long (1 to 22).
+ * Geohash of a point, `length` characters long (1 to 20).
  *
  * @throws {InvalidInputError} When the point is out of range or the length is not supported.
  */
@@ -43,7 +43,7 @@ export function encodeGeohash(point: GeoPoint, length = 9): string {
   assertLength(
     length,
     (value) => value >= 1 && value <= GEOHASH_MAX_LENGTH,
-    "geohash length runs from 1 to 22",
+    "geohash length runs from 1 to 20",
   );
   const latitude = [-90, 90];
   const longitude = [-180, 180];
@@ -78,7 +78,7 @@ export function encodeGeohash(point: GeoPoint, length = 9): string {
 export function decodeGeohash(code: string): GridCell {
   const text = code.trim().toLowerCase();
   if (text.length < 1 || text.length > GEOHASH_MAX_LENGTH) {
-    throw new InvalidInputError(`A geohash has 1 to 22 characters, got "${code}"`);
+    throw new InvalidInputError(`A geohash has 1 to 20 characters, got "${code}"`);
   }
   const latitude = [-90, 90];
   const longitude = [-180, 180];

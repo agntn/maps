@@ -126,7 +126,7 @@ export const convertInput = {
       decimal: precisionDigits(10, "Decimal places, default 6"),
       dms: precisionDigits(4, "Decimal places on seconds, default 1"),
       ddm: precisionDigits(5, "Decimal places on minutes, default 3"),
-      geohash: z.number().int().min(1).max(22).optional().describe("Characters, default 9"),
+      geohash: z.number().int().min(1).max(20).optional().describe("Characters, default 9"),
       maidenhead: z
         .literal([2, 4, 6, 8, 10])
         .optional()

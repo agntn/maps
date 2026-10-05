@@ -92,6 +92,13 @@ describe("geohash", () => {
     expect(decodeGeohash(code.toUpperCase()).center.latitude).toBeCloseTo(point.latitude, 4);
   });
 
+  it("stops at 20 characters, where doubles still keep cells apart", () => {
+    const longest = "u3qcnhhs59zbm5w9decw";
+    expect(encodeGeohash(decodeGeohash(longest).center, 20)).toBe(longest);
+    expect(() => decodeGeohash(`${longest}j`)).toThrow("1 to 20 characters");
+    expect(() => encodeGeohash(warsaw, 21)).toThrow("1 to 20");
+  });
+
   it("names the character a geohash never uses", () => {
     expect(() => decodeGeohash("ezs4a")).toThrow('"a" is not a geohash character');
   });
@@ -252,6 +259,7 @@ describe("format detection", () => {
     expect(() => encodeCoordinates(warsaw, "dms", 7)).toThrow(
       "dms precision is one of 0, 1, 2, 3, 4, got 7",
     );
+    expect(() => encodeCoordinates(warsaw, "what3words" as "decimal")).toThrow(InvalidInputError);
     for (const format of ["decimal", "dms", "ddm"] as const) {
       expect(() => encodeCoordinates({ latitude: 100, longitude: 200 }, format)).toThrow(
         "latitude must be",
