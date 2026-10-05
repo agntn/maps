@@ -61,6 +61,15 @@ describe("successful responses", () => {
     expect(headers.get("accept-language")).toBe("pl");
   });
 
+  it("replaces a default header named in lowercase instead of joining it", async () => {
+    const fetch = stubFetch(async () => Response.json({}));
+
+    await getJSON(URL_, { headers: { accept: "application/geo+json", "user-agent": "custom" } });
+    const headers = sentHeaders(fetch);
+    expect(headers.get("accept")).toBe("application/geo+json");
+    expect(headers.get("user-agent")).toBe("custom");
+  });
+
   it("parses JSON served as text/plain", async () => {
     stubFetch(async () => new Response('{"status":"OK","results":[]}'));
 

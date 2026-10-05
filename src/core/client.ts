@@ -31,7 +31,7 @@ export async function getJSON<T>(url: string, options?: ClientOptions): Promise<
   try {
     const response = await fetch(url, {
       method: "GET",
-      headers: { Accept: "application/json", "User-Agent": USER_AGENT, ...options?.headers },
+      headers: requestHeaders(options?.headers),
       signal: requestSignal(options),
     });
     if (response.status >= 400 && response.status < 600) {
@@ -41,6 +41,13 @@ export async function getJSON<T>(url: string, options?: ClientOptions): Promise<
   } catch (error) {
     throw normalizeError(error, options?.provider, url);
   }
+}
+
+/** Default headers, each replaced by a caller header of the same name in any letter case. */
+function requestHeaders(overrides?: Record<string, string>): Headers {
+  const headers = new Headers({ Accept: "application/json", "User-Agent": USER_AGENT });
+  for (const [name, value] of Object.entries(overrides ?? {})) headers.set(name, value);
+  return headers;
 }
 
 /** The caller's signal joined with the deadline. A bad timeout fails here, not 1 ms in flight. */

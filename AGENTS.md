@@ -72,7 +72,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 ## Testing
 
-`pnpm test` (vitest, 11 files / 165 tests, mocked via `vi.stubGlobal("fetch", ...)`; `client.test.ts` also runs the client against a loopback `node:http` server). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
+`pnpm test` (vitest, 11 files / 166 tests, mocked via `vi.stubGlobal("fetch", ...)`; `client.test.ts` also runs the client against a loopback `node:http` server). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
 
 Subprocess gates in `test/eval-*.mjs`, each runnable on its own:
 
