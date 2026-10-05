@@ -334,6 +334,7 @@ describe("convertCoordinates", () => {
     await expect(convertCoordinates("  ")).rejects.toThrow(InvalidInputError);
     await expect(convertCoordinates("5".repeat(257))).rejects.toThrow("256 characters at most");
     expect(() => decodeCoordinates("5".repeat(257))).toThrow("256 characters at most");
+    expect(() => detectCoordinateFormats("5".repeat(257))).toThrow("256 characters at most");
     await expect(
       convertCoordinates("ezs42", { to: ["geohash", "w3w" as "geohash"] }),
     ).rejects.toThrow('Unknown coordinate format "w3w"');

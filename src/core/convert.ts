@@ -120,7 +120,7 @@ export function assertCoordinateFormat(value: string): asserts value is Coordina
 
 /** Formats the text could be in. Only lower case reads as a geohash, so `JN58td` is a locator. */
 export function detectCoordinateFormats(input: string): CoordinateFormat[] {
-  const text = input.trim();
+  const text = readInput(input);
   const found: CoordinateFormat[] = [];
   if (isWhat3words(text)) return ["what3words"];
   if (isPlusCode(text)) return ["pluscode"];
