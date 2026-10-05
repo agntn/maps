@@ -144,6 +144,15 @@ function assertBand(latitude: number, band: string, slack: number, what: string)
   }
 }
 
+/** West and east around `center`; a box over the antimeridian keeps west > east, as in GeoJSON. */
+function longitudeSpan(longitudes: number[], center: number): { west: number; east: number } {
+  const offsets = longitudes.map(
+    (longitude) => ((((longitude - center + 180) % 360) + 360) % 360) - 180,
+  );
+  const wrap = (longitude: number): number => ((((longitude + 180) % 360) + 360) % 360) - 180;
+  return { west: wrap(center + Math.min(...offsets)), east: wrap(center + Math.max(...offsets)) };
+}
+
 /** Krüger's inverse on one zone, with the band deciding only the hemisphere. */
 function inverse(zone: number, band: string, easting: number, northing: number): GeoPoint {
   const south = band < "N";
@@ -302,8 +311,10 @@ export function decodeMgrs(text: string): { center: GeoPoint; bounds: BoundingBo
     bounds: {
       south: Math.min(...corners.map((corner) => corner.latitude)),
       north: Math.max(...corners.map((corner) => corner.latitude)),
-      west: Math.min(...corners.map((corner) => corner.longitude)),
-      east: Math.max(...corners.map((corner) => corner.longitude)),
+      ...longitudeSpan(
+        corners.map((corner) => corner.longitude),
+        center.longitude,
+      ),
     },
   };
 }

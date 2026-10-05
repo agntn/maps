@@ -199,6 +199,9 @@ describe("UTM and MGRS", () => {
     expect(bounds.east).toBeGreaterThan(center.longitude);
     expect(decodeMgrs("56HLH3490052288").center.latitude).toBeCloseTo(-33.8568, 4);
     expect(decodeMgrs("33XWG").center.longitude).toBeCloseTo(17.1401, 3);
+    const wrapped = decodeMgrs("60S YC").bounds;
+    expect(wrapped.west).toBeCloseTo(179.151, 3);
+    expect(wrapped.east).toBeCloseTo(-179.7406, 3);
   });
 
   it("refuses the polar caps and a square outside its band", () => {
@@ -245,13 +248,17 @@ describe("format detection", () => {
 
   it("checks precision against each format's range", () => {
     expect(encodeCoordinates(warsaw, "decimal", 2)).toBe("52.23, 21.01");
-    expect(() => encodeCoordinates(warsaw, "dms", 7)).toThrow("dms precision runs from 0 to 4");
+    expect(() => encodeCoordinates(warsaw, "dms", 7)).toThrow(
+      "dms precision is one of 0, 1, 2, 3, 4, got 7",
+    );
     for (const format of ["decimal", "dms", "ddm"] as const) {
       expect(() => encodeCoordinates({ latitude: 100, longitude: 200 }, format)).toThrow(
         "latitude must be",
       );
     }
-    expect(() => encodeCoordinates(warsaw, "pluscode", 9)).toThrow("Plus Code length");
+    expect(() => encodeCoordinates(warsaw, "pluscode", 9)).toThrow(
+      "pluscode precision is one of 2, 4, 6, 8, 10, 11",
+    );
   });
 });
 
@@ -293,6 +300,15 @@ describe("convertCoordinates", () => {
       precision: { maidenhead: 4 },
     });
     expect(shorter.formats.maidenhead).toBe("KO02");
+  });
+
+  it("refuses a precision the format lacks even when no format was asked for", async () => {
+    await expect(convertCoordinates("KO02", { precision: { maidenhead: 3 } })).rejects.toThrow(
+      "maidenhead precision is one of 2, 4, 6, 8, 10, got 3",
+    );
+    await expect(
+      convertCoordinates("KO02", { precision: { what3words: 1 } as never }),
+    ).rejects.toThrow("what3words has no precision");
   });
 
   it("skips a format the point does not fit unless it was asked for", async () => {

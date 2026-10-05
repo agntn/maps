@@ -50,6 +50,30 @@ export type LocalCoordinateFormat = Exclude<CoordinateFormat, "what3words">;
 /** Precision per format in its own unit: decimals, characters, Plus Code digits or MGRS digits. */
 export type CoordinatePrecision = Partial<Record<LocalCoordinateFormat, number>>;
 
+/** Precision values each local format accepts, with the default first. */
+const PRECISIONS: Record<LocalCoordinateFormat, readonly number[]> = {
+  decimal: [6, 0, 1, 2, 3, 4, 5, 7, 8, 9, 10],
+  dms: [1, 0, 2, 3, 4],
+  ddm: [3, 0, 1, 2, 4, 5],
+  geohash: [
+    9,
+    ...Array.from({ length: 22 }, (_, index) => index + 1).filter((length) => length !== 9),
+  ],
+  maidenhead: [6, 2, 4, 8, 10],
+  pluscode: [10, 2, 4, 6, 8, 11, 12, 13, 14, 15],
+  utm: [0, 1, 2, 3],
+  mgrs: [5, 0, 1, 2, 3, 4],
+};
+
+/** Throws unless `value` is a precision `format` supports; caller mistakes never become skips. */
+function assertPrecision(format: LocalCoordinateFormat, value: number): void {
+  const allowed = PRECISIONS[format];
+  if (!allowed.includes(value)) {
+    const listed = [...allowed].sort((a, b) => a - b).join(", ");
+    throw new InvalidInputError(`${format} precision is one of ${listed}, got ${value}`);
+  }
+}
+
 /** A decoded input: the point it names and, for grid codes, the cell around it. */
 export interface DecodedCoordinates {
   format: CoordinateFormat;
@@ -196,30 +220,25 @@ export function encodeCoordinates(
 ): string {
   assertCoordinateFormat(format);
   assertCoordinates(point.latitude, point.longitude);
-  const decimals = (fallback: number, max: number): number => {
-    const value = precision ?? fallback;
-    if (!Number.isInteger(value) || value < 0 || value > max) {
-      throw new InvalidInputError(`${format} precision runs from 0 to ${max}, got ${value}`);
-    }
-    return value;
-  };
+  const value = precision ?? (PRECISIONS[format][0] as number);
+  assertPrecision(format, value);
   switch (format) {
     case "decimal":
-      return formatDecimal(point, decimals(6, 10));
+      return formatDecimal(point, value);
     case "dms":
-      return formatDms(point, decimals(1, 4));
+      return formatDms(point, value);
     case "ddm":
-      return formatDdm(point, decimals(3, 5));
+      return formatDdm(point, value);
     case "geohash":
-      return encodeGeohash(point, precision);
+      return encodeGeohash(point, value);
     case "maidenhead":
-      return encodeMaidenhead(point, precision);
+      return encodeMaidenhead(point, value);
     case "pluscode":
-      return encodePlusCode(point, precision);
+      return encodePlusCode(point, value);
     case "utm":
-      return formatUtm(toUtm(point), decimals(0, 3));
+      return formatUtm(toUtm(point), value);
     case "mgrs":
-      return encodeMgrs(point, precision);
+      return encodeMgrs(point, value);
     default:
       throw new InvalidInputError(`${format as string} is not a local coordinate format`);
   }
@@ -252,6 +271,11 @@ export async function convertCoordinates(
   const from = options.from ?? pickFormat(text);
   assertCoordinateFormat(from);
   for (const format of options.to ?? []) assertCoordinateFormat(format);
+  for (const [format, value] of Object.entries(options.precision ?? {})) {
+    assertCoordinateFormat(format);
+    if (format === "what3words") throw new InvalidInputError("what3words has no precision");
+    if (value !== undefined) assertPrecision(format, value);
+  }
 
   let decoded: DecodedCoordinates;
   if (from === "what3words") {

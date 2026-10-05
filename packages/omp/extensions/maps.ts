@@ -374,6 +374,14 @@ export default function mapsExtension(pi: ExtensionAPI): void {
   const precisionField = (minimum: number, maximum: number, description: string) =>
     Type.Optional(Type.Integer({ minimum, maximum, description }));
 
+  const precisionChoice = (values: number[], description: string) =>
+    Type.Optional(
+      Type.Union(
+        values.map((value) => Type.Literal(value)),
+        { description },
+      ),
+    );
+
   const convertParameters = Type.Object({
     input: Type.String({
       description:
@@ -398,8 +406,11 @@ export default function mapsExtension(pi: ExtensionAPI): void {
           dms: precisionField(0, 4, "Decimal places on seconds, default 1"),
           ddm: precisionField(0, 5, "Decimal places on minutes, default 3"),
           geohash: precisionField(1, 22, "Characters, default 9"),
-          maidenhead: precisionField(2, 10, "Characters: 2, 4, 6, 8 or 10, default 6"),
-          pluscode: precisionField(2, 15, "Digits: 2, 4, 6, 8 or 10 to 15, default 10"),
+          maidenhead: precisionChoice([2, 4, 6, 8, 10], "Characters: 2, 4, 6, 8 or 10, default 6"),
+          pluscode: precisionChoice(
+            [2, 4, 6, 8, 10, 11, 12, 13, 14, 15],
+            "Digits: 2, 4, 6, 8 or 10 to 15, default 10",
+          ),
           utm: precisionField(0, 3, "Decimal places on meters, default 0"),
           mgrs: precisionField(0, 5, "Digits per axis, 5 is one meter, default 5"),
         },

@@ -128,17 +128,11 @@ export const convertInput = {
       ddm: precisionDigits(5, "Decimal places on minutes, default 3"),
       geohash: z.number().int().min(1).max(22).optional().describe("Characters, default 9"),
       maidenhead: z
-        .number()
-        .int()
-        .min(2)
-        .max(10)
+        .literal([2, 4, 6, 8, 10])
         .optional()
         .describe("Characters: 2, 4, 6, 8 or 10, default 6"),
       pluscode: z
-        .number()
-        .int()
-        .min(2)
-        .max(15)
+        .literal([2, 4, 6, 8, 10, 11, 12, 13, 14, 15])
         .optional()
         .describe("Digits: 2, 4, 6, 8 or 10 to 15, default 10"),
       utm: precisionDigits(3, "Decimal places on meters, default 0"),

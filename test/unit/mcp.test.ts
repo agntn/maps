@@ -278,6 +278,12 @@ describe("Maps MCP server", () => {
       arguments: { input: "KO02", precision: { what3words: 3 } },
     });
     expect(response.isError).toBe(true);
+
+    const odd = await client.callTool({
+      name: "maps_convert",
+      arguments: { input: "KO02", precision: { maidenhead: 3 } },
+    });
+    expect(odd.isError).toBe(true);
   });
 
   it("returns a short Plus Code's reason as a tool error", async () => {

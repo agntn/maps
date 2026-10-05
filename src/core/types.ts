@@ -6,7 +6,7 @@ export interface BoundingBox {
   south: number;
   /** Northern latitude bound */
   north: number;
-  /** Western longitude bound */
+  /** Western longitude bound; above `east` when the box crosses the antimeridian */
   west: number;
   /** Eastern longitude bound */
   east: number;

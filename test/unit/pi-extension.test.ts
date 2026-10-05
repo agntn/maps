@@ -130,6 +130,9 @@ describe("maps Pi extension", () => {
       false,
     );
     expect(Value.Check(tool.parameters, { input: "ezs42", to: ["w3w"] })).toBe(false);
+    expect(Value.Check(tool.parameters, { input: "ezs42", precision: { pluscode: 9 } })).toBe(
+      false,
+    );
 
     const result = await tool.execute(
       "test",

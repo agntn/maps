@@ -112,6 +112,12 @@ describe("maps OMP extension", () => {
     expect(accepts(tool, { input: "ezs42", to: ["mgrs"], precision: { mgrs: 3 } })).toBe(true);
     expect(accepts(tool, { input: "ezs42", to: ["w3w"] })).toBe(false);
     expect(accepts(tool, { input: "ezs42", precision: { mgrs: 6 } })).toBe(false);
+    expect(accepts(tool, { input: "ezs42", precision: { maidenhead: 3, pluscode: 11 } })).toBe(
+      false,
+    );
+    expect(accepts(tool, { input: "ezs42", precision: { maidenhead: 4, pluscode: 11 } })).toBe(
+      true,
+    );
     expect(accepts(tool, { input: "ezs42", precision: { what3words: 1 } })).toBe(false);
     expect(accepts(tool, {})).toBe(false);
 
