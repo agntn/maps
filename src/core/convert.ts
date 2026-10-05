@@ -194,7 +194,7 @@ export function decodeCoordinates(
       const half = digits.length / 2;
       const head = compact.slice(0, compact.length - digits.length);
       const canonical = [
-        head.slice(0, -2),
+        head.slice(0, -2).replace(/^0/, ""),
         head.slice(-2),
         digits.slice(0, half),
         digits.slice(half),
