@@ -7,6 +7,15 @@ import { version } from "./version.ts";
 /** Side-effect import: registers every built-in provider before the CLI parses arguments. */
 import "./providers/index.ts";
 
+/** `head` got its line and hung up, which is no crash. Exit quietly, rethrow anything else. */
+function exitOnClosedPipe(error: NodeJS.ErrnoException): void {
+  if (error.code !== "EPIPE") throw error;
+  process.exit();
+}
+
+process.stdout.on("error", exitOnClosedPipe);
+process.stderr.on("error", exitOnClosedPipe);
+
 const main = defineCommand({
   meta: {
     name: "maps",
