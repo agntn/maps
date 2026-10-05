@@ -213,6 +213,13 @@ describe("UTM and MGRS", () => {
 
   it("refuses the polar caps and a square outside its band", () => {
     expect(() => toUtm({ latitude: 84.5, longitude: 0 })).toThrow("UPS");
+    for (const edge of [
+      { latitude: -80, longitude: -180 },
+      { latitude: 84, longitude: 179.9 },
+    ]) {
+      const square = decodeMgrs(encodeMgrs(fromUtm(toUtm(edge))));
+      expect(square.center.latitude).toBeCloseTo(edge.latitude, 4);
+    }
     expect(() => decodeMgrs("34UEC123")).toThrow("not an MGRS reference");
     expect(() => decodeMgrs("33XWR")).toThrow("outside band X");
     expect(() => decodeMgrs("34UJC00838658")).toThrow("does not occur in MGRS zone 34");

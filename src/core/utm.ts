@@ -37,6 +37,9 @@ const DELTA = [
   (56 / 15) * N ** 3,
 ];
 
+/** Degrees past 80°S or 84°N still read as the edge, so an inverse projection's roundoff fits. */
+const EDGE_ROUNDOFF = 1e-6;
+
 /** Bands C to X, 8° each from 80°S, with X stretched to 84°N. */
 const BANDS = "CDEFGHJKLMNPQRSTUVWX";
 
@@ -93,15 +96,16 @@ function project(latitude: number, longitude: number, zone: number): [number, nu
  */
 export function toUtm(point: GeoPoint): UtmPosition {
   assertCoordinates(point.latitude, point.longitude);
-  if (point.latitude < -80 || point.latitude > 84) {
+  if (point.latitude < -80 - EDGE_ROUNDOFF || point.latitude > 84 + EDGE_ROUNDOFF) {
     throw new InvalidInputError(
       `UTM and MGRS cover 80°S to 84°N, got latitude ${point.latitude}; the polar caps use UPS`,
     );
   }
+  const latitude = Math.min(Math.max(point.latitude, -80), 84);
   const longitude = point.longitude === 180 ? -180 : point.longitude;
-  const zone = zoneOf(point.latitude, longitude);
-  const [easting, northing] = project(point.latitude, longitude, zone);
-  return { zone, band: bandOf(point.latitude), easting, northing };
+  const zone = zoneOf(latitude, longitude);
+  const [easting, northing] = project(latitude, longitude, zone);
+  return { zone, band: bandOf(latitude), easting, northing };
 }
 
 /**
