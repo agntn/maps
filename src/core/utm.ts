@@ -128,6 +128,24 @@ export function fromUtm(position: UtmPosition): GeoPoint {
       `UTM easting runs 0-1000000 m and northing 0-10000000 m, got ${easting} ${northing}`,
     );
   }
+  const point = inverse(zone, band, easting, northing);
+  assertBand(point.latitude, band, 0.5, `UTM position ${zone}${band} ${easting} ${northing}`);
+  return point;
+}
+
+/** Throws unless the latitude sits in the band, give or take `slack` degrees. */
+function assertBand(latitude: number, band: string, slack: number, what: string): void {
+  const south = BANDS.indexOf(band) * 8 - 80;
+  const north = band === "X" ? 84 : south + 8;
+  if (latitude < south - slack || latitude > north + slack) {
+    throw new InvalidInputError(
+      `${what} lands at latitude ${latitude.toFixed(4)}, outside band ${band}`,
+    );
+  }
+}
+
+/** Krüger's inverse on one zone, with the band deciding only the hemisphere. */
+function inverse(zone: number, band: string, easting: number, northing: number): GeoPoint {
   const south = band < "N";
   const xi = (northing - (south ? FALSE_NORTHING_SOUTH : 0)) / (SCALE * RECTIFYING_RADIUS);
   const eta = (easting - FALSE_EASTING) / (SCALE * RECTIFYING_RADIUS);
@@ -276,21 +294,9 @@ export function decodeMgrs(text: string): { center: GeoPoint; bounds: BoundingBo
     [easting + size, northing],
     [easting, northing + size],
     [easting + size, northing + size],
-  ].map(([east, north]) =>
-    fromUtm({ zone, band, easting: east as number, northing: north as number }),
-  );
-  const center = fromUtm({
-    zone,
-    band,
-    easting: easting + size / 2,
-    northing: northing + size / 2,
-  });
-  const bandNorth = band === "X" ? 84 : bandSouth + 8;
-  if (center.latitude < bandSouth - 1 || center.latitude > bandNorth + 1) {
-    throw new InvalidInputError(
-      `MGRS square ${match[3]}${match[4]} does not reach band ${band} in zone ${zone}`,
-    );
-  }
+  ].map(([east, north]) => inverse(zone, band, east as number, north as number));
+  const center = inverse(zone, band, easting + size / 2, northing + size / 2);
+  assertBand(center.latitude, band, 1, `MGRS square ${match[3]}${match[4]} in zone ${zone}`);
   return {
     center,
     bounds: {

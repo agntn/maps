@@ -1,6 +1,6 @@
 /** One entry point for every coordinate format: detect, decode, and write the point back out. */
 
-import type { GeoPoint } from "./coordinates.ts";
+import { assertCoordinates, type GeoPoint } from "./coordinates.ts";
 import { formatDdm, formatDecimal, formatDms, parseDegrees } from "./degrees.ts";
 import { InvalidInputError } from "./errors.ts";
 import {
@@ -99,7 +99,7 @@ export function detectCoordinateFormats(input: string): CoordinateFormat[] {
   const text = input.trim();
   const found: CoordinateFormat[] = [];
   if (isWhat3words(text)) return ["what3words"];
-  if (text.includes("+")) return isPlusCode(text) ? ["pluscode"] : [];
+  if (isPlusCode(text)) return ["pluscode"];
   if (isUtm(text)) return ["utm"];
   if (isMgrs(text)) found.push("mgrs");
   if (/^[A-R]{2}(?:\d{2}(?:[A-X]{2}(?:\d{2}(?:[A-X]{2})?)?)?)?$/i.test(text))
@@ -121,7 +121,8 @@ function pickFormat(input: string): CoordinateFormat {
       `"${input}" reads as ${formats.join(" or ")}; pass the format to pick one`,
     );
   }
-  if (/\d/.test(input) && !input.includes("+")) parseDegrees(input);
+  if (/^[23456789CFGHJMPQRVWX0]*\+[23456789CFGHJMPQRVWX]*$/i.test(input)) decodePlusCode(input);
+  if (/\d/.test(input)) parseDegrees(input);
   throw new InvalidInputError(
     `Could not tell the format of "${input}"; expected decimal degrees, DMS, DDM, a geohash, a Maidenhead locator, a Plus Code, UTM, MGRS or three words`,
   );
@@ -194,6 +195,7 @@ export function encodeCoordinates(
   precision?: number,
 ): string {
   assertCoordinateFormat(format);
+  assertCoordinates(point.latitude, point.longitude);
   const decimals = (fallback: number, max: number): number => {
     const value = precision ?? fallback;
     if (!Number.isInteger(value) || value < 0 || value > max) {

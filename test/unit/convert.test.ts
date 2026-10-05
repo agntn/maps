@@ -204,8 +204,14 @@ describe("UTM and MGRS", () => {
   it("refuses the polar caps and a square outside its band", () => {
     expect(() => toUtm({ latitude: 84.5, longitude: 0 })).toThrow("UPS");
     expect(() => decodeMgrs("34UEC123")).toThrow("not an MGRS reference");
-    expect(() => decodeMgrs("33XWR")).toThrow("does not reach band X");
+    expect(() => decodeMgrs("33XWR")).toThrow("outside band X");
     expect(() => decodeMgrs("34UJC00838658")).toThrow("does not occur in MGRS zone 34");
+    expect(() => fromUtm({ zone: 34, band: "U", easting: 500000, northing: 0 })).toThrow(
+      "outside band U",
+    );
+    expect(
+      fromUtm({ zone: 34, band: "T", easting: 500000, northing: 5318000 }).latitude,
+    ).toBeCloseTo(48, 1);
   });
 });
 
@@ -220,6 +226,7 @@ describe("format detection", () => {
     ["34U EC 0083 8658", ["mgrs"]],
     ["///filled.count.soap", ["what3words"]],
     ["N 52° 13.782 E 021° 00.732", ["ddm"]],
+    ["+52.2297, +21.0122", ["decimal"]],
     ["hello", []],
   ])("detects %s", (input, formats) => {
     expect(detectCoordinateFormats(input)).toEqual(formats);
@@ -233,11 +240,17 @@ describe("format detection", () => {
   it("explains what broke in a degree pair instead of giving up on the format", () => {
     expect(() => decodeCoordinates(`52°61'0"N 21°0'0"E`)).toThrow("below 60");
     expect(() => decodeCoordinates("hello")).toThrow("Could not tell the format");
+    expect(() => decodeCoordinates("8FWC2345+G")).toThrow("single digit after the +");
   });
 
   it("checks precision against each format's range", () => {
     expect(encodeCoordinates(warsaw, "decimal", 2)).toBe("52.23, 21.01");
     expect(() => encodeCoordinates(warsaw, "dms", 7)).toThrow("dms precision runs from 0 to 4");
+    for (const format of ["decimal", "dms", "ddm"] as const) {
+      expect(() => encodeCoordinates({ latitude: 100, longitude: 200 }, format)).toThrow(
+        "latitude must be",
+      );
+    }
     expect(() => encodeCoordinates(warsaw, "pluscode", 9)).toThrow("Plus Code length");
   });
 });
