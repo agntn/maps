@@ -62,7 +62,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - `src/providers/*.ts` - one file per provider, self-registering via `register()`
 - `src/mcp.ts` - `createMcpServer()`, read-only tools (`maps_distance` and `maps_convert` compute locally, no provider; what3words aside)
 - `src/ai.ts` - Vercel AI SDK tool surface
-- `src/cli.ts` + `src/commands/*.ts` - citty CLI (lazy subcommands; provider selection via `selectProvider()` from core)
+- `src/cli.ts` + `src/commands/*.ts` - citty CLI (lazy subcommands; provider selection via `selectProvider()` from core). An `EPIPE` on stdout or stderr (`| head -1`) ends the process quietly with the exit code the command set; any other stream error still throws
 - `packages/pi/extensions/maps.ts`, `packages/omp/extensions/maps.ts` - agent extensions; type-import from `dist/index.d.mts`. The OMP loader keeps both dynamic imports literal: `existsSync(src)` chooses `import("../../../src/index.ts")` or `import("../../../dist/index.mjs")`. An `import(url.href)` loses dependency resolution in the compiled binary
 
 ## CLI subcommands
@@ -80,7 +80,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 ## Testing
 
-`pnpm test` (vitest, 12 files / 261 tests, mocked via `vi.stubGlobal("fetch", ...)`; `client.test.ts` also runs the client against a loopback `node:http` server). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` and `WHAT3WORDS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
+`pnpm test` (vitest, 13 files / 262 tests, mocked via `vi.stubGlobal("fetch", ...)`; `client.test.ts` also runs the client against a loopback `node:http` server, `cli.test.ts` spawns `src/cli.ts` with stdout already closed). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` and `WHAT3WORDS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
 
 Subprocess gates in `test/eval-*.mjs`, each runnable on its own:
 
