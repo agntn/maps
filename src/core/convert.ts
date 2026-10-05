@@ -128,7 +128,7 @@ export function detectCoordinateFormats(input: string): CoordinateFormat[] {
   if (isMgrs(text)) found.push("mgrs");
   if (/^[A-R]{2}(?:\d{2}(?:[A-X]{2}(?:\d{2}(?:[A-X]{2})?)?)?)?$/i.test(text))
     found.push("maidenhead");
-  if (/^[0-9b-hjkmnp-z]{1,22}$/.test(text) && /[b-z]/.test(text)) found.push("geohash");
+  if (/^[0-9b-hjkmnp-z]{1,22}$/.test(text)) found.push("geohash");
   if (found.length > 0) return found;
   try {
     return [parseDegrees(text).notation];

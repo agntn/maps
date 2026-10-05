@@ -221,6 +221,7 @@ describe("UTM and MGRS", () => {
 describe("format detection", () => {
   it.each([
     ["ezs42", ["geohash"]],
+    ["0", ["geohash"]],
     ["KO02mf", ["maidenhead"]],
     ["jn58td", ["maidenhead", "geohash"]],
     ["8FVC2222+22", ["pluscode"]],
