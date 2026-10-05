@@ -16,7 +16,7 @@ import {
   encodeMaidenhead,
   encodePlusCode,
 } from "../../src/core/grids.ts";
-import { decodeMgrs, encodeMgrs, fromUtm, toUtm } from "../../src/core/utm.ts";
+import { decodeMgrs, encodeMgrs, fromUtm, parseUtm, toUtm } from "../../src/core/utm.ts";
 import { stubJSON } from "../helpers.ts";
 
 afterEach(() => {
@@ -59,6 +59,7 @@ describe("degrees", () => {
     ["52.5 13 N 21 E", "Only the last part"],
     ["91, 0", "latitude must be"],
     ["52 13 21", "same number of parts"],
+    ["52 13 46, 21", "both axes the same way"],
     ["52°, 21° x", 'Unexpected "x"'],
   ])("rejects %s", (input, reason) => {
     expect(() => parseDegrees(input)).toThrow(reason);
@@ -221,6 +222,8 @@ describe("UTM and MGRS", () => {
       expect(square.center.latitude).toBeCloseTo(edge.latitude, 4);
     }
     expect(() => decodeMgrs("34UEC123")).toThrow("not an MGRS reference");
+    expect(() => parseUtm("99U 500000 5786000")).toThrow("zone runs from 1 to 60");
+    expect(() => parseUtm("34U 5000000 5786000")).toThrow("easting runs");
     expect(() => decodeMgrs("33XWR")).toThrow("outside band X");
     expect(() => decodeMgrs("34UJC00838658")).toThrow("does not occur in MGRS zone 34");
     expect(() => fromUtm({ zone: 34, band: "U", easting: 500000, northing: 0 })).toThrow(

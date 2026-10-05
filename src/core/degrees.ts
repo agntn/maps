@@ -170,8 +170,11 @@ export function parseDegrees(input: string): ParsedDegrees {
   const latitude = axisValue(latitudeAxis, input);
   const longitude = axisValue(longitudeAxis, input);
   assertCoordinates(latitude, longitude);
-  const count = Math.max(first.numbers.length, second.numbers.length);
-  return { notation: NOTATION_BY_COUNT[count] ?? "decimal", point: { latitude, longitude } };
+  if (first.numbers.length !== second.numbers.length) {
+    throw new InvalidInputError(`Write both axes the same way, degrees to seconds, in "${input}"`);
+  }
+  const notation = NOTATION_BY_COUNT[first.numbers.length] ?? "decimal";
+  return { notation, point: { latitude, longitude } };
 }
 
 /** Fixed decimals without a stray "-0". */

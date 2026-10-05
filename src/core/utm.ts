@@ -114,6 +114,14 @@ export function toUtm(point: GeoPoint): UtmPosition {
  * @throws {InvalidInputError} When the zone, band or meters are out of range.
  */
 export function fromUtm(position: UtmPosition): GeoPoint {
+  const { zone, band, easting, northing } = checkUtm(position);
+  const point = inverse(zone, band, easting, northing);
+  assertBand(point.latitude, band, 0.5, `UTM position ${zone}${band} ${easting} ${northing}`);
+  return point;
+}
+
+/** The position with an upper case band, once zone, band and meters are in range. */
+function checkUtm(position: UtmPosition): UtmPosition {
   const { zone, easting, northing } = position;
   const band = position.band.toUpperCase();
   if (!Number.isInteger(zone) || zone < 1 || zone > 60) {
@@ -132,9 +140,7 @@ export function fromUtm(position: UtmPosition): GeoPoint {
       `UTM easting runs 0-1000000 m and northing 0-10000000 m, got ${easting} ${northing}`,
     );
   }
-  const point = inverse(zone, band, easting, northing);
-  assertBand(point.latitude, band, 0.5, `UTM position ${zone}${band} ${easting} ${northing}`);
-  return point;
+  return { zone, band, easting, northing };
 }
 
 /** Throws unless the latitude sits in the band, give or take `slack` degrees. */
@@ -214,12 +220,12 @@ export function parseUtm(text: string): UtmPosition {
     string,
     string,
   ];
-  return {
+  return checkUtm({
     zone: Number(zone),
-    band: band.toUpperCase(),
+    band,
     easting: Number(easting),
     northing: Number(northing),
-  };
+  });
 }
 
 /** MGRS 100 km column letters, one set per zone modulo 3. */
