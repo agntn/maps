@@ -50,12 +50,12 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - `src/core/all.ts` - parallel fan-out over every provider (`geocodeAll`, `geocodeAddressAll`, `reverseAll`, `serializeOutcomes`)
 - `src/core/format.ts` - plain-text formatters shared by every output surface, `formatProviders` included
 - `src/core/schemas.ts` - zod input fragments shared by the MCP server and the AI tools
-- `src/core/client.ts` - ofetch wrapper (15 s timeout, no retry, identifying User-Agent), `buildQuery`
+- `src/core/client.ts` - native `fetch` wrapper: `getJSON` parses the body whatever its content type, 15 s timeout joined with the caller's `signal`, no retry, identifying User-Agent. A 4xx or 5xx becomes a `ResponseError`, which `normalizeError()` classifies before it leaves the client. Also `buildQuery`
 - `src/providers/*.ts` - one file per provider, self-registering via `register()`
 - `src/mcp.ts` - `createMcpServer()`, five read-only tools (`maps_distance` computes locally, no provider)
 - `src/ai.ts` - Vercel AI SDK tool surface
 - `src/cli.ts` + `src/commands/*.ts` - citty CLI (lazy subcommands; provider selection via `selectProvider()` from core)
-- `packages/pi/extensions/maps.ts`, `packages/omp/extensions/maps.ts` - agent extensions; type-import from `dist/index.d.mts`. The OMP loader keeps both dynamic imports literal: `existsSync(src)` chooses `import("../../../src/index.ts")` or `import("../../../dist/index.mjs")`. An `import(url.href)` loses `ofetch` resolution in the compiled binary
+- `packages/pi/extensions/maps.ts`, `packages/omp/extensions/maps.ts` - agent extensions; type-import from `dist/index.d.mts`. The OMP loader keeps both dynamic imports literal: `existsSync(src)` chooses `import("../../../src/index.ts")` or `import("../../../dist/index.mjs")`. An `import(url.href)` loses dependency resolution in the compiled binary
 
 ## CLI subcommands
 
@@ -72,7 +72,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 ## Testing
 
-`pnpm test` (vitest, 10 files / 135 tests, all mocked via `vi.stubGlobal("fetch", ...)`). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
+`pnpm test` (vitest, 11 files / 165 tests, mocked via `vi.stubGlobal("fetch", ...)`; `client.test.ts` also runs the client against a loopback `node:http` server). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
 
 Subprocess gates in `test/eval-*.mjs`, each runnable on its own:
 
