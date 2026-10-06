@@ -35,10 +35,21 @@ check(
 const dir = mkdtempSync(join(tmpdir(), "maps-packed-"));
 const install = spawnSync(
   "npm",
-  ["install", "--legacy-peer-deps", "--no-audit", "--no-fund", join(ROOT, tarballName)],
+  [
+    "install",
+    "--legacy-peer-deps",
+    "--no-audit",
+    "--no-fund",
+    join(ROOT, tarballName),
+    "@modelcontextprotocol/client@2.2.0",
+  ],
   { cwd: dir, encoding: "utf8", timeout: 300_000 },
 );
-check("npm install of the tarball succeeds without peers", install.status === 0, install.stderr);
+check(
+  "npm install of the tarball and a test client succeeds without peers",
+  install.status === 0,
+  install.stderr,
+);
 
 /**
  * The probe registers a provider through the main entry and reads it back through the mcp
@@ -48,8 +59,7 @@ writeFileSync(
   join(dir, "probe.mjs"),
   `import { Provider, register } from "@agntn/maps";
 import { createMcpServer } from "@agntn/maps/mcp";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 
 class Probe extends Provider {
   static key = "probe";
@@ -76,7 +86,7 @@ const response = await client.callTool({ name: "maps_providers", arguments: {} }
 const text = response.content[0].text;
 await client.close();
 await server.close();
-if (!text.includes('"probe"')) {
+if (!text.includes("  probe: ")) {
   console.error("registry split: probe missing from maps_providers");
   process.exit(1);
 }

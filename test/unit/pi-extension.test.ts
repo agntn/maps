@@ -1,49 +1,72 @@
+import { wireSchema } from "@agntn/tools";
 import type {
   ExtensionAPI,
   ExtensionContext,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Value } from "typebox/value";
-import { requireTool, stubJSON } from "../helpers.ts";
 import mapsExtension from "../../packages/pi/extensions/maps.ts";
+import { mapsTools } from "../../src/tools.ts";
+import { requireTool, stubJSON } from "../helpers.ts";
 
-/** SAFETY: the extension only calls registerTool during registration; the fake implements that exact seam. */
-function registerExtensionTools(): Map<string, ToolDefinition> {
+/** SAFETY: the adapter only calls registerTool; reading any other member fails by name. */
+async function registerExtensionTools(): Promise<Map<string, ToolDefinition>> {
   const tools = new Map<string, ToolDefinition>();
-  const api = {
-    registerTool(tool: ToolDefinition) {
-      tools.set(tool.name, tool);
+  const api = new Proxy(
+    {
+      registerTool(tool: ToolDefinition) {
+        tools.set(tool.name, tool);
+      },
     },
-  };
+    {
+      get(target, key, receiver) {
+        if (typeof key === "symbol" || key === "then" || Reflect.has(target, key)) {
+          return Reflect.get(target, key, receiver);
+        }
+        throw new Error(`ExtensionAPI.${String(key)} is not stubbed`);
+      },
+    },
+  );
 
-  mapsExtension(api as unknown as ExtensionAPI);
+  await mapsExtension(api as unknown as ExtensionAPI);
   return tools;
 }
 
 /** SAFETY: the tested execute functions do not read ExtensionContext. */
 const unusedContext = {} as ExtensionContext;
 
+async function run(name: string, params: unknown) {
+  const tool = requireTool(await registerExtensionTools(), name);
+  return tool.execute("test", params as never, undefined, undefined, unusedContext);
+}
+
+async function text(name: string, params: unknown): Promise<string> {
+  return ((await run(name, params)).content[0] as { text: string }).text;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe("maps Pi extension", () => {
-  it("registers the complete tool set", () => {
-    const tools = registerExtensionTools();
+  it("registers the complete tool set with the shared schemas", async () => {
+    const tools = await registerExtensionTools();
 
     expect([...tools.keys()]).toEqual([
+      "maps_providers",
       "maps_geocode",
       "maps_geocode_address",
       "maps_reverse",
       "maps_distance",
       "maps_convert",
-      "maps_providers",
     ]);
+    for (const definition of mapsTools) {
+      expect(requireTool(tools, definition.name).parameters).toEqual(wireSchema(definition));
+    }
   });
 
-  it("names each tool in every prompt guideline", () => {
-    const tools = registerExtensionTools();
+  it("names each tool in every prompt guideline", async () => {
+    const tools = await registerExtensionTools();
 
     for (const tool of tools.values()) {
       expect(tool.promptGuidelines).not.toHaveLength(0);
@@ -53,118 +76,100 @@ describe("maps Pi extension", () => {
     }
   });
 
-  it("declares an integer geocode limit from 1 through 40", () => {
-    const tool = requireTool(registerExtensionTools(), "maps_geocode");
+  it.each([0, 41, 1.5])("refuses geocode limit %s before any request", async (limit) => {
+    const fetch = stubJSON([]);
 
-    expect(Value.Check(tool.parameters, { query: "Warsaw", limit: 1 })).toBe(true);
-    expect(Value.Check(tool.parameters, { query: "Warsaw", limit: 40 })).toBe(true);
-    expect(Value.Check(tool.parameters, { query: "Warsaw", limit: 0 })).toBe(false);
-    expect(Value.Check(tool.parameters, { query: "Warsaw", limit: 41 })).toBe(false);
-    expect(Value.Check(tool.parameters, { query: "Warsaw", limit: 1.5 })).toBe(false);
+    await expect(run("maps_geocode", { query: "Warsaw", limit })).rejects.toThrow("/limit");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("bounds reverse coordinates to valid WGS 84 ranges", () => {
-    const tool = requireTool(registerExtensionTools(), "maps_reverse");
-
-    expect(Value.Check(tool.parameters, { latitude: 52.23, longitude: 21.01 })).toBe(true);
-    expect(Value.Check(tool.parameters, { latitude: 95, longitude: 21.01 })).toBe(false);
-    expect(Value.Check(tool.parameters, { latitude: 52.23, longitude: 200 })).toBe(false);
-    expect(Value.Check(tool.parameters, { latitude: 52.23 })).toBe(false);
-  });
-
-  it("accepts only the named geocode layers", () => {
-    const tool = requireTool(registerExtensionTools(), "maps_geocode");
-
-    expect(Value.Check(tool.parameters, { query: "Warsaw", layers: ["poi", "natural"] })).toBe(
-      true,
+  it("bounds reverse coordinates to valid WGS 84 ranges", async () => {
+    await expect(run("maps_reverse", { latitude: 95, longitude: 21.01 })).rejects.toThrow(
+      "/latitude",
     );
-    expect(Value.Check(tool.parameters, { query: "Warsaw", layers: [] })).toBe(true);
-    expect(Value.Check(tool.parameters, { query: "Warsaw", layers: ["railway"] })).toBe(false);
-    expect(Value.Check(tool.parameters, { query: "Warsaw", layers: "poi" })).toBe(false);
+    await expect(run("maps_reverse", { latitude: 52.23, longitude: 200 })).rejects.toThrow(
+      "/longitude",
+    );
+    await expect(run("maps_reverse", { latitude: 52.23 })).rejects.toThrow("longitude");
   });
 
-  it("accepts only the named reverse granularities", () => {
-    const tool = requireTool(registerExtensionTools(), "maps_reverse");
+  it("accepts only the named geocode layers", async () => {
+    stubJSON([]);
 
-    const point = { latitude: 52.23, longitude: 21.01 };
-    expect(Value.Check(tool.parameters, { ...point, granularity: "city" })).toBe(true);
-    expect(Value.Check(tool.parameters, { ...point, granularity: "block" })).toBe(false);
+    await expect(
+      text("maps_geocode", {
+        query: "Warsaw",
+        layers: ["poi", "natural"],
+        provider: "openstreetmap",
+      }),
+    ).resolves.toBe('[openstreetmap] No matches for "Warsaw"');
+    await expect(run("maps_geocode", { query: "Warsaw", layers: ["railway"] })).rejects.toThrow(
+      "address, poi, natural",
+    );
+    await expect(run("maps_geocode", { query: "Warsaw", layers: "poi" })).rejects.toThrow(
+      "/layers",
+    );
+  });
+
+  it("accepts only the named reverse granularities", async () => {
+    await expect(
+      run("maps_reverse", { latitude: 52.23, longitude: 21.01, granularity: "block" }),
+    ).rejects.toThrow("country, state, city, street, building");
   });
 
   it("compares providers side by side when provider is 'all'", async () => {
     stubJSON([{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska" }]);
-    const tool = requireTool(registerExtensionTools(), "maps_geocode");
 
-    const result = await tool.execute(
-      "test",
-      { query: "Warszawa", provider: "all" },
-      undefined,
-      undefined,
-      unusedContext,
-    );
+    const result = await text("maps_geocode", { query: "Warszawa", provider: "all" });
 
-    const text = (result.content[0] as { text: string }).text;
-    expect(text).toContain('[openstreetmap] 1 matches for "Warszawa"');
-    expect(text).toContain("[googlemaps] error: Authentication failed for googlemaps");
+    expect(result).toContain('[openstreetmap] 1 matches for "Warszawa"');
+    expect(result).toContain("[googlemaps] error: Authentication failed for googlemaps");
   });
 
   it("computes a distance locally without network access", async () => {
-    const tool = requireTool(registerExtensionTools(), "maps_distance");
-
-    const result = await tool.execute(
-      "test",
-      { from: { latitude: 0, longitude: 0 }, to: { latitude: 0, longitude: 1 } },
-      undefined,
-      undefined,
-      unusedContext,
-    );
+    const result = await run("maps_distance", {
+      from: { latitude: 0, longitude: 0 },
+      to: { latitude: 0, longitude: 1 },
+    });
 
     expect(result.content).toEqual([
       { type: "text", text: "Distance: 111.20 km (111195 m)\nBearing: 90°" },
     ]);
+    expect(result.details).toEqual({
+      meters: expect.closeTo(111195.08, 1),
+      formatted: "111.20 km (111195 m)",
+      bearing: 90,
+    });
   });
 
   it("converts coordinates to text without network access", async () => {
-    const tool = requireTool(registerExtensionTools(), "maps_convert");
-    expect(Value.Check(tool.parameters, { input: "ezs42", precision: { geohash: 30 } })).toBe(
-      false,
-    );
-    expect(Value.Check(tool.parameters, { input: "ezs42", to: ["w3w"] })).toBe(false);
-    expect(Value.Check(tool.parameters, { input: "ezs42", precision: { pluscode: 9 } })).toBe(
-      false,
-    );
+    await expect(
+      run("maps_convert", { input: "ezs42", precision: { geohash: 30 } }),
+    ).rejects.toThrow("/precision/geohash");
+    await expect(run("maps_convert", { input: "ezs42", to: ["w3w"] })).rejects.toThrow("/to/0");
+    await expect(
+      run("maps_convert", { input: "ezs42", precision: { pluscode: 9 } }),
+    ).rejects.toThrow("/precision/pluscode");
 
-    const result = await tool.execute(
-      "test",
-      { input: "ezs42", to: ["decimal", "maidenhead"] },
-      undefined,
-      undefined,
-      unusedContext,
+    await expect(
+      text("maps_convert", { input: "ezs42", to: ["decimal", "maidenhead"] }),
+    ).resolves.toBe(
+      [
+        "geohash ezs42 -> 42.60498046875, -5.60302734375",
+        "Cell: 42.5830078125..42.626953125 lat, -5.625..-5.5810546875 lon",
+        "  decimal     42.604980, -5.603027",
+        "  maidenhead  IN72eo",
+      ].join("\n"),
     );
-
-    expect(result.content).toEqual([
-      {
-        type: "text",
-        text: [
-          "geohash ezs42 -> 42.60498046875, -5.60302734375",
-          "Cell: 42.5830078125..42.626953125 lat, -5.625..-5.5810546875 lon",
-          "  decimal     42.604980, -5.603027",
-          "  maidenhead  IN72eo",
-        ].join("\n"),
-      },
-    ]);
   });
 
   it("lists providers without model or network access", async () => {
-    const tool = requireTool(registerExtensionTools(), "maps_providers");
+    await expect(text("maps_providers", {})).resolves.toMatch(/^Registered providers \(2\):/);
+  });
 
-    const result = await tool.execute("test", {}, undefined, undefined, unusedContext);
-
-    expect(result.content).toEqual([
-      {
-        type: "text",
-        text: expect.stringMatching(/^Registered providers \(2\):/),
-      },
-    ]);
+  it("fails the call on a refusal of the library, since Pi takes a returned value as success", async () => {
+    await expect(run("maps_geocode_address", {})).rejects.toThrow(
+      "address needs at least one non-empty field",
+    );
   });
 });

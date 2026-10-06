@@ -7,8 +7,8 @@
  */
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { Client } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
 const CLI = fileURLToPath(new URL("../dist/cli.mjs", import.meta.url));
 const LIVE = process.env.MAPS_EVAL_OFFLINE !== "1";
@@ -104,7 +104,7 @@ check(
   "providers reports the unconfigured backend",
   providers.isError !== true &&
     firstText(providers).includes("openstreetmap") &&
-    firstText(providers).includes("requiresConfiguration"),
+    firstText(providers).includes("googlemaps: (requires API key"),
   firstText(providers),
 );
 
@@ -115,8 +115,7 @@ const distance = await client.callTool({
 check(
   "distance returns meters and bearing",
   distance.isError !== true &&
-    firstText(distance).includes('"meters": 111195.0') &&
-    firstText(distance).includes('"bearing": 90'),
+    firstText(distance) === "Distance: 111.20 km (111195 m)\nBearing: 90°",
   firstText(distance),
 );
 
@@ -127,9 +126,9 @@ const convert = await client.callTool({
 check(
   "convert decodes a geohash cell locally",
   convert.isError !== true &&
-    firstText(convert).includes('"decimal": "42.604980, -5.603027"') &&
-    firstText(convert).includes('"maidenhead": "IN72eo"') &&
-    firstText(convert).includes('"south": 42.5830078125'),
+    firstText(convert).includes("  decimal     42.604980, -5.603027") &&
+    firstText(convert).includes("  maidenhead  IN72eo") &&
+    firstText(convert).includes("Cell: 42.5830078125.."),
   firstText(convert),
 );
 
@@ -155,11 +154,12 @@ if (LIVE) {
     arguments: { query: "Pałac Kultury i Nauki, Warszawa", limit: 1 },
   });
   check(
-    "live geocode answers with the provider name and coordinates, without the raw record",
+    "live geocode answers with the provider name, coordinates and facts, without the raw record",
     geocode.isError !== true &&
-      firstText(geocode).includes('"provider": "openstreetmap"') &&
-      firstText(geocode).includes('"latitude"') &&
-      !firstText(geocode).includes('"raw"'),
+      firstText(geocode).startsWith("[openstreetmap] 1 matches") &&
+      firstText(geocode).includes("52.2317657, 21.0057979") &&
+      firstText(geocode).includes("address houseNumber 1, road Plac Defilad") &&
+      !firstText(geocode).includes("raw "),
     firstText(geocode),
   );
 } else {
@@ -183,7 +183,7 @@ if (LIVE) {
   });
   check(
     "a dummy Google key falls back to openstreetmap through the server",
-    fallback.isError !== true && firstText(fallback).includes('"provider": "openstreetmap"'),
+    fallback.isError !== true && firstText(fallback).startsWith("[openstreetmap]"),
     firstText(fallback),
   );
   await dummyClient.close();

@@ -2,7 +2,7 @@
 
 ## Scope
 
-Unified geocoding provider library. Normalizes forward geocoding (free-form and structured-address input), reverse geocoding, and structured address output across providers, with coordinate validation, local great-circle distance plus bearing (haversine) and coordinate format conversion in core. Exports a CLI (`maps` binary), a programmatic API, an MCP server (`@agntn/maps/mcp`), Vercel AI SDK tools (`@agntn/maps/ai`), and Pi/OMP extensions.
+Unified geocoding provider library. Normalizes forward geocoding (free-form and structured-address input), reverse geocoding, and structured address output across providers, with coordinate validation, local great-circle distance plus bearing (haversine) and coordinate format conversion in core. Exports a CLI (`maps` binary), a programmatic API, an MCP server (`@agntn/maps/mcp`), Vercel AI SDK tools (`@agntn/maps/ai`), and Pi/OMP extensions. Every surface but the library takes one tool list from `src/tools.ts` through the `@agntn/tools` adapters.
 
 ## Providers
 
@@ -25,7 +25,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - `GeoLocation.address` is the normalized `GeoAddress`; city fallback chains are provider-specific (Nominatim: `city ?? town ?? village ?? hamlet ?? municipality`; Google: `locality ?? postal_town`), Google address fields use `long_name` (only `countryCode` reads `short_name`), and an all-empty address collapses onto `undefined` via `compactAddress()`
 - `BoundingBox` is `{ south, north, west, east }`; Nominatim's string quadruple and Google's `viewport` both map onto it
 - Provider registration is a class side effect: each concrete class owns a static `key`, and importing `src/providers/index.ts` triggers all `register()` calls - because of that, `package.json` must NOT declare `sideEffects: false`
-- One obuild bundle with four inputs (`index`, `cli`, `mcp`, `ai`) so every entry shares the chunk holding the registry
+- One obuild bundle with five inputs (`index`, `cli`, `mcp`, `ai`, `tools`) so every entry shares the chunk holding the registry
 - Error hierarchy: `MapsError` → `HTTPError`, `AuthError`, `PaymentError` (402), `RateLimitError`, `NotFoundError`, `UnsupportedOperationError`, `UnknownProviderError`, `InvalidInputError`; `normalizeError()` wraps everything at the client boundary
 - `MapsError` sanitizes messages: secret query params (`key`, `api[-_]key`, `secret`, `token`) are redacted - this covers the Google Maps `key` param
 - Internal imports use explicit `.ts` extensions (nodenext + `allowImportingTsExtensions`); `erasableSyntaxOnly` forbids parameter properties
@@ -35,7 +35,8 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - Auto-selected requests (no provider given) go through the `*WithFallback` trio in `core/all.ts`: auth, billing, rate-limit, and unsupported-operation failures skip to the next provider, anything else propagates, and when everything is skipped the first skip reason is thrown; an explicit provider is never substituted
 - Reverse `granularity` (country/state/city/street/building) maps onto Nominatim `zoom` (3/5/10/16/18) and the Google `result_type` filter (country/administrative_area_level_1/locality/route/street_address)
 - Forward `layers` (address/poi/natural, `GEOCODE_LAYERS`) maps 1:1 onto the Nominatim `layer` filter; the Google Geocoding API has no request-side layer filter, so `googlemaps` partitions each result by its `types` locally (`natural_feature` → natural, `POI_TYPES` → poi, anything else → address) before the limit is applied. Nominatim's `railway` and `manmade` layers stay out of the API because Google has no counterpart. An empty list means no filter, like `countryCodes`
-- `GeoLocation.raw` stays on the library type, but the MCP and AI tools send it only when the call passes `raw: true` (`rawInput` in `core/schemas.ts`, `trimLocation`/`trimLocations` in `core/types.ts`, and the `view` argument of `serializeOutcomes` for the `all` path): the record repeats the normalized fields and was two thirds of a default `maps_geocode` answer (52 kB for 36 Nominatim results). The CLI, Pi and OMP text formatters never print it
+- `GeoLocation.raw` stays on the library type, but the tools send it only when the call passes `raw: true` (`raw` in `src/tools.ts`, `trimLocation`/`trimLocations` in `core/types.ts`, the `view` argument of `serializeOutcomes` for the `all` path, and the `raw` option of the location formatters): the record repeats the normalized fields and was two thirds of a default `maps_geocode` answer (52 kB for 36 Nominatim results)
+- Every host gets the same tool text, built by the `core/format.ts` formatters, with the data as `details` (AI SDK output, CLI `--json`). MCP sees only the text, so a list line carries its facts on an indented line below (category, country, address under `GeoAddress` field names, bounds). `answer()` in `src/tool-operations.ts` strips escapes, controls and bidi marks from that text, keeping lines and indents
 - Capability gating goes through `requireOperation()` in `core/provider.ts`; text rendering through the `format*` helpers in `core/format.ts` - do not re-implement either per surface
 - Structured geocoding takes the same `GeoAddress` shape the results use; `assertAddress()` rejects an all-empty input, Nominatim gets `street`/`city`/`state`/`postalcode`/`country` params, Google gets house number and street in the free-form `address` param plus the rest as a `components` filter (its filter has no street_number type)
 
@@ -56,18 +57,19 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - `src/core/resolve.ts` - env-based auto-selection, shared `selectProvider()`, `isAllProviders()`
 - `src/core/all.ts` - parallel fan-out over every provider (`geocodeAll`, `geocodeAddressAll`, `reverseAll`, `serializeOutcomes`)
 - `src/core/format.ts` - plain-text formatters shared by every output surface, `formatProviders` included
-- `src/core/schemas.ts` - zod input fragments shared by the MCP server and the AI tools
+- `src/tools.ts` - one `defineTool` per tool, schemas built with `Type` from `@agntn/tools` (never bare `typebox`), executors behind a cached `import()` of `src/tool-operations.ts`, so the extensions register without loading the library
+- `src/tool-operations.ts` - the executors: provider selection, fallback, `all`, the text and the details
 - `src/core/convert.ts` - format detection, `convertCoordinates` and the per-format codecs it drives (`degrees.ts`, `grids.ts`, `utm.ts`, `what3words.ts`)
 - `src/core/client.ts` - native `fetch` wrapper: `getJSON` parses the body whatever its content type, 15 s timeout joined with the caller's `signal`, no retry, identifying User-Agent. A 4xx or 5xx becomes a `ResponseError`, which `normalizeError()` classifies before it leaves the client. Also `buildQuery`
 - `src/providers/*.ts` - one file per provider, self-registering via `register()`
-- `src/mcp.ts` - `createMcpServer()`, read-only tools (`maps_distance` and `maps_convert` compute locally, no provider; what3words aside)
-- `src/ai.ts` - Vercel AI SDK tool surface
-- `src/cli.ts` + `src/commands/*.ts` - citty CLI (lazy subcommands; provider selection via `selectProvider()` from core). An `EPIPE` on stdout or stderr (`| head -1`) ends the process quietly with the exit code the command set; any other stream error still throws
-- `packages/pi/extensions/maps.ts`, `packages/omp/extensions/maps.ts` - agent extensions; type-import from `dist/index.d.mts`. The OMP loader keeps both dynamic imports literal: `existsSync(src)` chooses `import("../../../src/index.ts")` or `import("../../../dist/index.mjs")`. An `import(url.href)` loses dependency resolution in the compiled binary
+- `src/mcp.ts` - `createMcpServer()` on `@agntn/tools/mcp` (MCP SDK v2 `Server`); `maps_distance` and `maps_convert` compute locally, no provider, what3words aside
+- `src/ai.ts` - Vercel AI SDK tools from `toAiTool`, output `{ ...details, text }`
+- `src/cli.ts` - `runCli` from `@agntn/tools/cli`: one command per tool plus `mcp`; `src/cli-commands.ts` holds the CLI-only `reverse` and `distance`, which take a point as one `"latitude,longitude"` word. `MapsError` prints as one line with exit code 1; `EPIPE` ends quietly
+- `packages/pi/extensions/maps.ts`, `packages/omp/extensions/maps.ts` - `registerPiTools` and `registerOmpTools` over `mapsTools`; type-import from `dist/tools.d.mts`. The OMP loader keeps both dynamic imports literal: `existsSync(src)` chooses `import("../../../src/tools.ts")` or `import("../../../dist/tools.mjs")`. An `import(url.href)` loses dependency resolution in the compiled binary. The OMP status line comes from `describeCall`; nothing imports `@oh-my-pi/pi-coding-agent/tui`, which compiled OMP doesn't serve
 
 ## CLI subcommands
 
-`geocode`, `address`, `reverse`, `distance`, `convert`, `providers`, `mcp` - provider commands support `-p` (provider, `all` included) and `-l` (language); `geocode` adds `-n` (limit), `--country` (comma-separated ISO codes) and `--layer` (comma-separated `GEOCODE_LAYERS`); `address` takes the fields as flags (`--house`, `--road`, `--city`, `--state`, `--postcode`, `--country`); `distance` is local-only and prints bearing too. `convert` joins every positional into one input, so unquoted DMS works, and takes `--from`, `--to`, `--precision geohash=5,mgrs=3`, `--near "lat,lon"` for short Plus Codes and `-l` for what3words. `reverse` and `distance` take positional `"latitude,longitude"` pairs; a pair starting with a minus needs a `--` separator first, because the argument parser would read it as a flag.
+`providers`, `geocode`, `address`, `reverse`, `distance`, `convert`, `mcp`. Flags come from the tool schemas in kebab case (`--provider`, `--language`, `--limit`, `--house-number`), with no short aliases; arrays and objects take JSON (`--layers '["poi"]'`, `--precision '{"geohash":5}'`, `--reference '{"latitude":52.2,"longitude":21}'`). `--json` prints the details. `geocode` and `convert` take their input as one positional word, so quote DMS. `reverse` and `distance` take positional `"latitude,longitude"` pairs; a pair starting with a minus needs a `--` separator first, and options go before it.
 
 ## Constraints
 
@@ -75,12 +77,12 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - Nominatim reverse reports "Unable to geocode" in-body with HTTP 200 → `NotFoundError`
 - Google returns every failure in-body with HTTP 200; `assertOkStatus()` maps `REQUEST_DENIED` → `AuthError`, `OVER_QUERY_LIMIT`/`OVER_DAILY_LIMIT` → `RateLimitError`, `INVALID_REQUEST` → `InvalidInputError`, other non-OK → `MapsError`. `ZERO_RESULTS` is an empty list for `geocode` and `NotFoundError` for `reverse`
 - Google has no server-side limit param; the provider slices to `clampMaxResults(limit, 20)` locally. Nominatim caps `limit` at 40 server-side
-- MCP/AI schemas accept `limit` up to 40, but providers clamp to their own maximum and truncate silently - there is no cursor in v0.1
+- The tool schemas accept `limit` up to 40, but providers clamp to their own maximum and truncate silently - there is no cursor in v0.1
 - The Google key rides in the `key` query param; the shared sanitizer redacts it from every error message and body
 
 ## Testing
 
-`pnpm test` (vitest, 13 files / 262 tests, mocked via `vi.stubGlobal("fetch", ...)`; `client.test.ts` also runs the client against a loopback `node:http` server, `cli.test.ts` spawns `src/cli.ts` with stdout already closed). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` and `WHAT3WORDS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The OMP extension test mocks `@oh-my-pi/pi-coding-agent` and `/tui` - the host serves those modules at runtime.
+`pnpm test` (vitest, mocked via `vi.stubGlobal("fetch", ...)`; `client.test.ts` also runs the client against a loopback `node:http` server, `cli.test.ts` spawns `src/cli.ts`, once with stdout already closed). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` and `WHAT3WORDS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The Pi and OMP extension tests register into strict host doubles that throw on any member they don't stub; the OMP one makes importing `/tui` throw, since compiled OMP doesn't serve it.
 
 Subprocess gates in `test/eval-*.mjs`, each runnable on its own:
 

@@ -106,3 +106,4 @@ export {
   formatProviders,
   formatReverseAll,
 } from "./core/format.ts";
+export type { LocationTextOptions } from "./core/format.ts";
