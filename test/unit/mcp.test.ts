@@ -378,6 +378,25 @@ describe("Maps MCP server", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("checks a country code after trimming it", async () => {
+    const fetch = stubJSON([]);
+    const client = await connectTestClient();
+
+    const padded = await client.callTool({
+      name: "maps_geocode",
+      arguments: { query: "Springfield", countryCodes: [" US "], provider: "openstreetmap" },
+    });
+    expect(answer(padded)).toBe('[openstreetmap] No matches for "Springfield"');
+    expect(String(fetch.mock.calls[0]?.[0])).toContain("countrycodes=us");
+
+    const short = await client.callTool({
+      name: "maps_geocode",
+      arguments: { query: "Springfield", countryCodes: [" U"], provider: "openstreetmap" },
+    });
+    expect(failure(short)).toContain("/countryCodes/0");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it.each(["", "   "])(
     "rejects an empty-like provider instead of selecting a default",
     async (provider) => {

@@ -93,7 +93,7 @@ export const geocodeSchema = Type.Object(
     limit,
     language,
     countryCodes: Type.Optional(
-      Type.Array(Type.String({ minLength: 2, maxLength: 2 }), {
+      Type.Array(Type.String({ pattern: "^\\s*[A-Za-z]{2}\\s*$" }), {
         description: "Restrict results to these ISO 3166-1 alpha-2 country codes",
       }),
     ),
