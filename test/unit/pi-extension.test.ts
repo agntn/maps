@@ -55,7 +55,7 @@ describe("maps Pi extension", () => {
     expect([...tools.keys()]).toEqual([
       "maps_providers",
       "maps_geocode",
-      "maps_geocode_address",
+      "maps_address_geocode",
       "maps_reverse",
       "maps_distance",
       "maps_convert",
@@ -168,7 +168,7 @@ describe("maps Pi extension", () => {
   });
 
   it("fails the call on a refusal of the library, since Pi takes a returned value as success", async () => {
-    await expect(run("maps_geocode_address", {})).rejects.toThrow(
+    await expect(run("maps_address_geocode", {})).rejects.toThrow(
       "address needs at least one non-empty field",
     );
   });

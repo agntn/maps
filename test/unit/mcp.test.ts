@@ -74,7 +74,7 @@ describe("Maps MCP server", () => {
     expect(listed.tools.map((tool) => tool.name)).toEqual([
       "maps_providers",
       "maps_geocode",
-      "maps_geocode_address",
+      "maps_address_geocode",
       "maps_reverse",
       "maps_distance",
       "maps_convert",
@@ -95,7 +95,7 @@ describe("Maps MCP server", () => {
 
     const text = answer(
       await client.callTool({
-        name: "maps_geocode_address",
+        name: "maps_address_geocode",
         arguments: {
           road: "Złota",
           houseNumber: "44",
@@ -108,7 +108,7 @@ describe("Maps MCP server", () => {
       '[openstreetmap] 1 matches for "44, Złota, Warszawa":\n52.2312136, 21.0024451  Złota 44, Warszawa',
     );
 
-    const empty = await client.callTool({ name: "maps_geocode_address", arguments: {} });
+    const empty = await client.callTool({ name: "maps_address_geocode", arguments: {} });
     expect(failure(empty)).toContain("address needs at least one non-empty field");
   });
 
@@ -216,7 +216,7 @@ describe("Maps MCP server", () => {
       line: "52.23, 21.01  Warszawa, Polska",
     },
     {
-      tool: "maps_geocode_address",
+      tool: "maps_address_geocode",
       arguments: { city: "Warszawa", provider: "openstreetmap" },
       body: [{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska", osm_id: 336075 }],
       line: "52.23, 21.01  Warszawa, Polska",

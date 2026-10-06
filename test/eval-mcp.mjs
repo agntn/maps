@@ -83,7 +83,7 @@ check(
     JSON.stringify([
       "maps_providers",
       "maps_geocode",
-      "maps_geocode_address",
+      "maps_address_geocode",
       "maps_reverse",
       "maps_distance",
       "maps_convert",

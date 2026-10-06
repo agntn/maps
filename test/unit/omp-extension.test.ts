@@ -98,7 +98,7 @@ describe("maps OMP extension", () => {
     expect([...tools.keys()]).toEqual([
       "maps_providers",
       "maps_geocode",
-      "maps_geocode_address",
+      "maps_address_geocode",
       "maps_reverse",
       "maps_distance",
       "maps_convert",
@@ -169,8 +169,8 @@ describe("maps OMP extension", () => {
   it.each([
     ["maps_providers", {}, "list"],
     ["maps_geocode", { query: "Złota 44" }, "Złota 44"],
-    ["maps_geocode_address", { road: "Złota", city: "Warszawa" }, "Złota, Warszawa"],
-    ["maps_geocode_address", {}, "empty address"],
+    ["maps_address_geocode", { road: "Złota", city: "Warszawa" }, "Złota, Warszawa"],
+    ["maps_address_geocode", {}, "empty address"],
     ["maps_reverse", { latitude: 52.23, longitude: 21.01 }, "52.23, 21.01"],
     [
       "maps_distance",
