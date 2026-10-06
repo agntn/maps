@@ -3,7 +3,15 @@
 import type { ProviderOutcome } from "./all.ts";
 import type { CoordinateConversion } from "./convert.ts";
 import type { ProviderListing } from "./registry.ts";
-import type { GeoAddress, GeoLocation } from "./types.ts";
+import type { BoundingBox, GeoAddress, GeoLocation } from "./types.ts";
+
+/** What a location text shows besides the normalized fields. */
+export interface LocationTextOptions {
+  /** Print the provider's own record as one line of JSON. Off by default, it dwarfs the rest. */
+  raw?: boolean;
+}
+
+const ADDRESS_FIELDS = ["houseNumber", "road", "city", "state", "postcode", "country"] as const;
 
 /** One-line label for a location in a list: coordinates plus its display name. */
 export function formatLocationLine(location: GeoLocation): string {
@@ -11,28 +19,65 @@ export function formatLocationLine(location: GeoLocation): string {
   return `${location.latitude}, ${location.longitude}  ${name}`;
 }
 
+/** Address parts under their `GeoAddress` names, so `houseNumber 44, road Złota` maps back. */
+function formatAddressFields(address: GeoAddress): string {
+  return ADDRESS_FIELDS.flatMap((field) =>
+    address[field] === undefined ? [] : [`${field} ${address[field]}`],
+  ).join(", ");
+}
+
+function formatBounds(box: BoundingBox): string {
+  return `${box.south}..${box.north} lat, ${box.west}..${box.east} lon`;
+}
+
+/** What a list line leaves out: category, country, address parts and bounds, `; ` apart. */
+function formatLocationFacts(location: GeoLocation): string {
+  return [
+    location.category ? `category ${location.category}` : null,
+    location.countryCode ? `country ${location.countryCode}` : null,
+    location.address ? `address ${formatAddressFields(location.address)}` : null,
+    location.boundingBox ? `bounds ${formatBounds(location.boundingBox)}` : null,
+  ]
+    .filter(Boolean)
+    .join("; ");
+}
+
 /** Multi-line description of a single location. */
-export function formatLocation(providerName: string, location: GeoLocation): string {
+export function formatLocation(
+  providerName: string,
+  location: GeoLocation,
+  options: LocationTextOptions = {},
+): string {
   const box = location.boundingBox;
   return [
     `[${providerName}] ${location.displayName ?? `${location.latitude}, ${location.longitude}`}`,
     `Coordinates: ${location.latitude}, ${location.longitude}`,
     location.category ? `Category: ${location.category}` : null,
     location.countryCode ? `Country: ${location.countryCode}` : null,
-    box ? `Bounds: ${box.south}..${box.north} lat, ${box.west}..${box.east} lon` : null,
+    location.address ? `Address: ${formatAddressFields(location.address)}` : null,
+    box ? `Bounds: ${formatBounds(box)}` : null,
+    options.raw && location.raw ? `Raw: ${JSON.stringify(location.raw)}` : null,
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-/** Multi-line listing of geocoding matches for a query. */
+/** Multi-line listing of geocoding matches for a query, the facts of each indented below it. */
 export function formatLocations(
   providerName: string,
   query: string,
   locations: GeoLocation[],
+  options: LocationTextOptions = {},
 ): string {
   if (locations.length === 0) return `[${providerName}] No matches for "${query}"`;
-  const lines = locations.map((location) => formatLocationLine(location));
+  const lines = locations.flatMap((location) => {
+    const facts = formatLocationFacts(location);
+    return [
+      formatLocationLine(location),
+      ...(facts ? [`  ${facts}`] : []),
+      ...(options.raw && location.raw ? [`  raw ${JSON.stringify(location.raw)}`] : []),
+    ];
+  });
   return `[${providerName}] ${locations.length} matches for "${query}":\n${lines.join("\n")}`;
 }
 
@@ -54,23 +99,27 @@ export function formatAddressLabel(address: GeoAddress): string {
 export function formatGeocodeAll(
   query: string,
   outcomes: ProviderOutcome<GeoLocation[]>[],
+  options: LocationTextOptions = {},
 ): string {
   return outcomes
     .map((outcome) =>
       outcome.error
         ? `[${outcome.provider}] error: ${outcome.error.message}`
-        : formatLocations(outcome.provider, query, outcome.result),
+        : formatLocations(outcome.provider, query, outcome.result, options),
     )
     .join("\n\n");
 }
 
 /** Side-by-side reverse-geocoding results from every registered provider, failures included. */
-export function formatReverseAll(outcomes: ProviderOutcome<GeoLocation>[]): string {
+export function formatReverseAll(
+  outcomes: ProviderOutcome<GeoLocation>[],
+  options: LocationTextOptions = {},
+): string {
   return outcomes
     .map((outcome) =>
       outcome.error
         ? `[${outcome.provider}] error: ${outcome.error.message}`
-        : formatLocation(outcome.provider, outcome.result),
+        : formatLocation(outcome.provider, outcome.result, options),
     )
     .join("\n\n");
 }
@@ -96,7 +145,8 @@ export function formatProviders(listings: ProviderListing[]): string {
       .filter(([, enabled]) => enabled)
       .map(([operation]) => operation)
       .join(", ");
-    return `  ${listing.name}: ${capabilities || "(no supported maps operations)"}`;
+    const url = listing.defaultUrl ? ` (${listing.defaultUrl})` : "";
+    return `  ${listing.name}: ${capabilities || "(no supported maps operations)"}${url}`;
   });
   return `Registered providers (${listings.length}):\n${lines.join("\n")}`;
 }

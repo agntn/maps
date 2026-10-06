@@ -26,10 +26,16 @@ describe("Maps AI SDK tools", () => {
     stubJSON([place]);
 
     const trimmed = await tool.execute?.(input, callOptions);
-    expect(trimmed).toEqual({ provider: "openstreetmap", locations: [trimmedPlace] });
+    expect(trimmed).toEqual({
+      provider: "openstreetmap",
+      locations: [trimmedPlace],
+      text: expect.stringContaining("52.23, 21.01  Warszawa, Polska"),
+    });
+    expect(trimmed?.text).not.toContain("osm_id");
 
     const full = await tool.execute?.({ ...input, raw: true }, callOptions);
     expect(full).toMatchObject({ locations: [{ ...trimmedPlace, raw: place }] });
+    expect(full?.text).toContain('raw {"lat":"52.23"');
   });
 
   it("reverse sends the provider record only when raw is requested", async () => {
@@ -37,7 +43,11 @@ describe("Maps AI SDK tools", () => {
     const input = { latitude: 52.23, longitude: 21.01, provider: "openstreetmap" };
 
     const trimmed = await reverseTool.execute?.(input, callOptions);
-    expect(trimmed).toEqual({ provider: "openstreetmap", location: trimmedPlace });
+    expect(trimmed).toEqual({
+      provider: "openstreetmap",
+      location: trimmedPlace,
+      text: expect.stringContaining("Coordinates: 52.23, 21.01"),
+    });
 
     const full = await reverseTool.execute?.({ ...input, raw: true }, callOptions);
     expect(full).toMatchObject({ location: { ...trimmedPlace, raw: place } });

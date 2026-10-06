@@ -58,22 +58,10 @@ check(
   badDistance.stderr,
 );
 
-const convert = run([
-  "convert",
-  "52",
-  "13",
-  "46.9",
-  "N",
-  "21",
-  "0",
-  "43.9",
-  "E",
-  "--to",
-  "maidenhead,mgrs",
-]);
+const convert = run(["convert", "52 13 46.9 N 21 0 43.9 E", "--to", '["maidenhead","mgrs"]']);
 check("convert exits 0", convert.status === 0, convert.stderr);
 check(
-  "convert reads unquoted DMS and writes the requested formats",
+  "convert reads spaced DMS and writes the requested formats",
   convert.stdout.includes("dms 52°13'46.9\"N 21°0'43.9\"E") &&
     convert.stdout.includes("maidenhead  KO02mf") &&
     convert.stdout.includes("mgrs        34U EC 00832 86586"),
@@ -87,7 +75,14 @@ check(
   shortPlus.stderr,
 );
 
-const recovered = run(["convert", "CJ+2VX", "--near", "51.37,-1.2178", "--to", "decimal"]);
+const recovered = run([
+  "convert",
+  "CJ+2VX",
+  "--reference",
+  '{"latitude":51.37,"longitude":-1.2178}',
+  "--to",
+  '["decimal"]',
+]);
 check(
   "convert recovers a short Plus Code near a reference",
   recovered.status === 0 && recovered.stdout.includes("decimal  51.370113, -1.217766"),
@@ -101,14 +96,14 @@ check(
   badPair.stderr,
 );
 
-const unknown = run(["geocode", "Warsaw", "-p", "missing"]);
+const unknown = run(["geocode", "Warsaw", "--provider", "missing"]);
 check(
   "geocode rejects an unknown provider",
   unknown.status === 1 && unknown.stderr.includes("Unknown provider: missing"),
   unknown.stderr,
 );
 
-const keyless = run(["geocode", "Warsaw", "-p", "googlemaps"]);
+const keyless = run(["geocode", "Warsaw", "--provider", "googlemaps"]);
 check(
   "googlemaps without a key fails with a clean auth message",
   keyless.status === 1 && keyless.stderr.includes("GOOGLE_MAPS_API_KEY"),
@@ -122,17 +117,20 @@ check(
   emptyAddress.stderr,
 );
 
-const badGranularity = run(["reverse", "52.23,21.01", "-g", "block"]);
+const badGranularity = run(["reverse", "52.23,21.01", "--granularity", "block"]);
 check(
   "reverse rejects an unknown granularity",
-  badGranularity.status === 1 && badGranularity.stderr.includes("Invalid granularity"),
+  badGranularity.status === 1 &&
+    badGranularity.stderr.includes("country, state, city, street, building"),
   badGranularity.stderr,
 );
 
-const badLayer = run(["geocode", "Supreme Court", "--layer", "poi,railway"]);
+const badLayer = run(["geocode", "Supreme Court", "--layers", '["poi","railway"]']);
 check(
   "geocode rejects an unknown layer",
-  badLayer.status === 1 && badLayer.stderr.includes("Invalid layer: railway"),
+  badLayer.status === 1 &&
+    badLayer.stderr.includes("/layers/1") &&
+    badLayer.stderr.includes("address, poi, natural"),
   badLayer.stderr,
 );
 
@@ -142,7 +140,7 @@ for (const sub of ["geocode", "address", "reverse", "distance", "convert", "prov
 }
 
 if (LIVE) {
-  const geocode = run(["geocode", "Pałac Kultury i Nauki, Warszawa", "-n", "1"]);
+  const geocode = run(["geocode", "Pałac Kultury i Nauki, Warszawa", "--limit", "1"]);
   check(
     "live geocode finds the palace",
     geocode.status === 0 && geocode.stdout.includes("52.2317657"),
@@ -160,11 +158,11 @@ if (LIVE) {
     "address",
     "--road",
     "Złota",
-    "--house",
+    "--house-number",
     "44",
     "--city",
     "Warszawa",
-    "-n",
+    "--limit",
     "1",
   ]);
   check(
@@ -173,7 +171,7 @@ if (LIVE) {
     address.stdout || address.stderr,
   );
   await sleep(1100);
-  const coarse = run(["reverse", "52.2318,21.0067", "-g", "city"]);
+  const coarse = run(["reverse", "52.2318,21.0067", "--granularity", "city"]);
   check(
     "live city granularity answers with the city boundary",
     coarse.status === 0 &&
@@ -182,7 +180,14 @@ if (LIVE) {
     coarse.stdout || coarse.stderr,
   );
   await sleep(1100);
-  const landmark = run(["geocode", "United States Supreme Court", "--layer", "poi", "-n", "3"]);
+  const landmark = run([
+    "geocode",
+    "United States Supreme Court",
+    "--layers",
+    '["poi"]',
+    "--limit",
+    "3",
+  ]);
   check(
     "live poi layer surfaces the court building instead of streets named after it",
     landmark.status === 0 &&
@@ -191,7 +196,7 @@ if (LIVE) {
     landmark.stdout || landmark.stderr,
   );
   await sleep(1100);
-  const fallback = run(["geocode", "Rynek, Wrocław", "-n", "1"], {
+  const fallback = run(["geocode", "Rynek, Wrocław", "--limit", "1"], {
     GOOGLE_MAPS_API_KEY: "dummy",
   });
   check(

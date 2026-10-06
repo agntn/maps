@@ -27,12 +27,12 @@ You want a latitude and longitude, not another afternoon mapping JSON fields. No
 pnpm add @agntn/maps
 ```
 
-Node.js 24 or newer. The npm release is pending, so registry installs need publication first. Until then, use the [source checkout](#development).
+Node.js 26 or newer. The npm release is pending, so registry installs need publication first. Until then, use the [source checkout](#development).
 
 ## 🚀 First call
 
 ```bash
-npx @agntn/maps geocode "Pałac Kultury i Nauki, Warszawa" -p openstreetmap -l en -n 1
+npx @agntn/maps geocode "Pałac Kultury i Nauki, Warszawa" --provider openstreetmap --language en --limit 1
 ```
 
 Output from the local build:
@@ -40,9 +40,10 @@ Output from the local build:
 ```text
 [openstreetmap] 1 matches for "Pałac Kultury i Nauki, Warszawa":
 52.2317657, 21.0057979  Palace of Culture and Science, 1, Plac Defilad, Żelazna Brama, Śródmieście Północne, Midtown, Warsaw, Masovian Voivodeship, 00-110, Poland
+  category attraction; country pl; address houseNumber 1, road Plac Defilad, city Warsaw, state Masovian Voivodeship, postcode 00-110, country Poland; bounds 52.2304141..52.2331217 lat, 21.0043177..21.0080405 lon
 ```
 
-That's a fairly long way of saying "the big building in Warsaw".
+That's a fairly long way of saying "the big building in Warsaw". The indented line is the rest of what Nominatim knows. An attraction. Fair enough.
 Data: [© OpenStreetMap contributors, ODbL](https://www.openstreetmap.org/copyright).
 
 No API key needed for this lookup. Public Nominatim allows **at most one request per second across your application**. Space out calls yourself: Maps doesn't throttle them. No bulk jobs or autocomplete against that instance. Read its [usage policy](https://operations.osmfoundation.org/policies/nominatim/) before using it, and don't send confidential data.
@@ -85,19 +86,19 @@ Cell: 42.5830078125..42.626953125 lat, -5.625..-5.5810546875 lon
 
 ### Commands
 
-| Command     | Use it for                     | Example                                                |
-| ----------- | ------------------------------ | ------------------------------------------------------ |
-| `geocode`   | A place name or address        | `maps geocode "Rynek, Wrocław"`                        |
-| `address`   | Address parts you already have | `maps address --road Złota --house 44 --city Warszawa` |
-| `reverse`   | What's at these coordinates?   | `maps reverse 52.2318,21.0067`                         |
-| `distance`  | Distance and initial bearing   | `maps distance 52.2297,21.0122 50.0647,19.9450`        |
-| `convert`   | One location, every format     | `maps convert "N 52° 13.782 E 021° 00.732"`            |
-| `providers` | Provider keys and capabilities | `maps providers`                                       |
-| `mcp`       | A stdio MCP server             | `maps mcp`                                             |
+| Command     | Use it for                     | Example                                                       |
+| ----------- | ------------------------------ | ------------------------------------------------------------- |
+| `geocode`   | A place name or address        | `maps geocode "Rynek, Wrocław"`                               |
+| `address`   | Address parts you already have | `maps address --road Złota --house-number 44 --city Warszawa` |
+| `reverse`   | What's at these coordinates?   | `maps reverse 52.2318,21.0067`                                |
+| `distance`  | Distance and initial bearing   | `maps distance 52.2297,21.0122 50.0647,19.9450`               |
+| `convert`   | One location, every format     | `maps convert "N 52° 13.782 E 021° 00.732"`                   |
+| `providers` | Provider keys and capabilities | `maps providers`                                              |
+| `mcp`       | A stdio MCP server             | `maps mcp`                                                    |
 
-Use `-p` for a provider and `-l` for a preferred language. Forward searches accept `-n` for the result limit. `geocode` also takes `--country us` and `--layer poi`. Looking for a landmark rather than streets named after it? Try `poi`. Each command has `--help`.
+Options are spelled out: `--provider`, `--language`, `--limit`. Lists and objects go in as JSON. Looking for a landmark rather than streets named after it? Try `--layers '["poi"]'`. Want the data, not the text? Add `--json`. Each command has `--help`.
 
-A negative latitude needs a separator: `maps reverse -- -33.86,151.21`. `convert` takes `--to`, `--precision geohash=5` and `--near` for a short Plus Code like `9G8F+6W`.
+A negative latitude needs a separator: `maps reverse -- -33.86,151.21`. A short Plus Code like `9G8F+6W` needs a point nearby, `--reference '{"latitude":52.2,"longitude":21}'`.
 
 ## 🧠 Library
 
@@ -128,7 +129,7 @@ Address fields are optional. Check `capabilities` for custom providers. Coordina
 | `openstreetmap` | None for public Nominatim | 40                 |
 | `googlemaps`    | `GOOGLE_MAPS_API_KEY`     | 20                 |
 
-CLI and agent tools select Google when its key is configured, otherwise OpenStreetMap. They fall back on auth, billing, rate-limit errors or unsupported operations. Other failures propagate. An explicit provider is never replaced. Pass `-p all` in the CLI to compare providers in parallel, with errors kept beside successful results.
+CLI and agent tools select Google when its key is configured, otherwise OpenStreetMap. They fall back on auth, billing, rate-limit errors or unsupported operations. Other failures propagate. An explicit provider is never replaced. Pass `--provider all` in the CLI to compare providers in parallel, with errors kept beside successful results.
 
 For Google, enable the Geocoding API and supply its key through the environment. Follow [Google's usage and attribution rules](https://developers.google.com/maps/documentation/geocoding/policies). Maps redacts secret query parameters from error messages, including Google's `key` parameter.
 
@@ -155,13 +156,13 @@ Or add Maps to an MCP client:
 }
 ```
 
-Read-only tools: `maps_providers`, `maps_geocode`, `maps_geocode_address`, `maps_reverse`, `maps_distance` and `maps_convert`. Same set in Pi and OMP. MCP geocoding results omit the original provider record. Need `osm_id` or `place_id`? Pass `raw: true`. No need to carry the whole suitcase for a postcode.
+Read-only tools: `maps_providers`, `maps_geocode`, `maps_geocode_address`, `maps_reverse`, `maps_distance` and `maps_convert`. Every host gets the same set and the same text, indented facts included. The provider's own record stays out. Need `osm_id` or `place_id`? Pass `raw: true`. No need to carry the whole suitcase for a postcode.
 
 With a built checkout, use `pi install .` or `omp install .`. For MCP, use `node` with the absolute path to `dist/cli.mjs`, followed by `mcp`.
 
-Using Vercel AI SDK? Install `ai` too. `@agntn/maps/ai` exports `geocodeTool`, `geocodeAddressTool`, `reverseTool`, `distanceTool`, `convertTool` and `providersTool`. The same `raw` flag works there. Bring your own MCP transport with the `@agntn/maps/mcp` export, `createMcpServer`.
+Using Vercel AI SDK? Install `ai` too. `@agntn/maps/ai` exports `geocodeTool`, `geocodeAddressTool`, `reverseTool`, `distanceTool`, `convertTool` and `providersTool`. You get the data back, with that same text in `text`. The `raw` flag works there too. Bring your own MCP transport with the `@agntn/maps/mcp` export, `createMcpServer`.
 
-[MCP server](./src/mcp.ts) · [AI SDK tools](./src/ai.ts) · [Pi](./packages/pi/extensions/maps.ts) · [OMP](./packages/omp/extensions/maps.ts)
+[Tool definitions](./src/tools.ts) · [MCP server](./src/mcp.ts) · [AI SDK tools](./src/ai.ts) · [Pi](./packages/pi/extensions/maps.ts) · [OMP](./packages/omp/extensions/maps.ts)
 
 ## 🚫 What this does not do
 

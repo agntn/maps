@@ -1,36 +1,18 @@
 #!/usr/bin/env node
 
-/** Maps CLI - unified geocoding commands */
-import { defineCommand, runMain } from "citty";
+/** Maps CLI: one command per maps tool, plus the MCP server. */
+import { runCli } from "@agntn/tools/cli";
+import { distanceCommand, reverseCommand } from "./cli-commands.ts";
+import { MapsError } from "./core/errors.ts";
+import { mapsTools } from "./tools.ts";
 import { version } from "./version.ts";
 
-/** Side-effect import: registers every built-in provider before the CLI parses arguments. */
-import "./providers/index.ts";
-
-/** `head` got its line and hung up, which is no crash. Exit quietly, rethrow anything else. */
-function exitOnClosedPipe(error: NodeJS.ErrnoException): void {
-  if (error.code !== "EPIPE") throw error;
-  process.exit();
-}
-
-process.stdout.on("error", exitOnClosedPipe);
-process.stderr.on("error", exitOnClosedPipe);
-
-const main = defineCommand({
-  meta: {
-    name: "maps",
-    version,
-    description: "Unified maps and geocoding CLI",
-  },
-  subCommands: {
-    geocode: () => import("./commands/geocode.ts").then((m) => m.default),
-    address: () => import("./commands/address.ts").then((m) => m.default),
-    reverse: () => import("./commands/reverse.ts").then((m) => m.default),
-    distance: () => import("./commands/distance.ts").then((m) => m.default),
-    convert: () => import("./commands/convert.ts").then((m) => m.default),
-    providers: () => import("./commands/providers.ts").then((m) => m.default),
-    mcp: () => import("./commands/mcp.ts").then((m) => m.default),
-  },
+await runCli({
+  name: "maps",
+  version,
+  description: "Unified maps and geocoding CLI",
+  tools: mapsTools,
+  commands: [reverseCommand, distanceCommand],
+  mcp: true,
+  expected: (error) => error instanceof MapsError,
 });
-
-await runMain(main);
