@@ -156,7 +156,7 @@ Or add Maps to an MCP client:
 }
 ```
 
-Read-only tools: `maps_providers`, `maps_geocode`, `maps_geocode_address`, `maps_reverse`, `maps_distance` and `maps_convert`. Every host gets the same set and the same text, indented facts included. The provider's own record stays out. Need `osm_id` or `place_id`? Pass `raw: true`. No need to carry the whole suitcase for a postcode.
+Read-only tools: `maps_providers`, `maps_geocode`, `maps_address_geocode`, `maps_reverse`, `maps_distance` and `maps_convert`. Every host gets the same set and the same text, indented facts included. The provider's own record stays out. Need `osm_id` or `place_id`? Pass `raw: true`. No need to carry the whole suitcase for a postcode.
 
 With a built checkout, use `pi install .` or `omp install .`. For MCP, use `node` with the absolute path to `dist/cli.mjs`, followed by `mcp`.
 

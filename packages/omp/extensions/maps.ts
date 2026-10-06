@@ -39,7 +39,7 @@ function pointPreview(value: unknown): string {
 const describeCall: Record<string, (args: Args) => string> = {
   maps_providers: () => "list",
   maps_geocode: (args) => preview(args["query"]),
-  maps_geocode_address: (args) =>
+  maps_address_geocode: (args) =>
     preview(args["houseNumber"], args["road"], args["city"], args["postcode"], args["country"]) ||
     "empty address",
   maps_reverse: (args) => preview(args["latitude"], args["longitude"]),

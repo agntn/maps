@@ -147,15 +147,15 @@ export const geocodeAddressSchema = Type.Object(
 );
 
 export const geocodeAddressTool = defineTool({
-  name: "maps_geocode_address",
+  name: "maps_address_geocode",
   title: "Geocode an Address",
   description:
     "Resolve a structured postal address (street, city, postcode, ...) to normalized coordinates. Needs at least one field",
   snippet:
-    "Use maps_geocode_address when you already have address parts instead of a free-form query.",
+    "Use maps_address_geocode when you already have address parts instead of a free-form query.",
   guidelines: [
-    "Use maps_geocode_address with any subset of houseNumber, road, city, state, postcode, and country.",
-    "maps_geocode_address needs at least one field; provider 'all' compares every provider.",
+    "Use maps_address_geocode with any subset of houseNumber, road, city, state, postcode, and country.",
+    "maps_address_geocode needs at least one field; provider 'all' compares every provider.",
   ],
   effect: "read",
   input: geocodeAddressSchema,
