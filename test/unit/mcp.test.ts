@@ -194,6 +194,39 @@ describe("Maps MCP server", () => {
     expect(text).not.toContain("\u001B");
   });
 
+  it("keeps a long line with an escape whole", async () => {
+    const tail = "a".repeat(3000);
+    stubJSON([{ lat: "52.23", lon: "21.01", display_name: `\u001B[31m${tail}` }]);
+    const client = await connectTestClient();
+
+    const text = answer(
+      await client.callTool({
+        name: "maps_geocode",
+        arguments: { query: "Warszawa", provider: "openstreetmap" },
+      }),
+    );
+    expect(text.split("\n")[1]).toBe(`52.23, 21.01  ${tail}`);
+  });
+
+  it("drops an OSC that closes on a later line with the lines it spans", async () => {
+    stubJSON([
+      { lat: "52.23", lon: "21.01", display_name: "Wars\u001B]0;title" },
+      { lat: "52.24", lon: "21.02", display_name: "hidden\u0007zawa" },
+    ]);
+    const client = await connectTestClient();
+
+    const text = answer(
+      await client.callTool({
+        name: "maps_geocode",
+        arguments: { query: "Warszawa", provider: "openstreetmap" },
+      }),
+    );
+    expect(text.split("\n")).toEqual([
+      '[openstreetmap] 2 matches for "Warszawa":',
+      "52.23, 21.01  Warszawa",
+    ]);
+  });
+
   it("compares every provider when provider is 'all'", async () => {
     stubJSON([{ lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska" }]);
     const client = await connectTestClient();
