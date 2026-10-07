@@ -1,7 +1,6 @@
 /** Executors behind the maps tools: one text for every host, the data as details. */
 
-import { stripVTControlCharacters } from "node:util";
-import type { Static, ToolResult } from "@agntn/tools";
+import { sanitizeText, type Static, type ToolResult } from "@agntn/tools";
 import {
   geocodeAddressAll,
   geocodeAddressWithFallback,
@@ -67,36 +66,9 @@ export interface ProvidersDetails {
   providers: ProviderListing[];
 }
 
-/** Controls but tab and newline, plus the bidi marks that reorder a line. */
-const UNPRINTABLE =
-  /* oxlint-disable-next-line no-control-regex */
-  /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u061C\u200E\u200F\u202A-\u202E\u2066-\u206F]/g;
-
-/** ESC and C1 CSI, which open every sequence worth stripping. */
-/* oxlint-disable-next-line no-control-regex */
-const ESCAPE_OPENER = /[\u001B\u009B]/;
-
-/** Longest line `stripVTControlCharacters` gets, quadratic as it is on an unclosed sequence. */
-const MAX_ESCAPED_LINE = 2000;
-
-function stripEscapes(line: string): string {
-  if (!ESCAPE_OPENER.test(line)) return line;
-  const chars = Array.from(line);
-  const bounded =
-    chars.length > MAX_ESCAPED_LINE ? `${chars.slice(0, MAX_ESCAPED_LINE).join("")}…` : line;
-  return stripVTControlCharacters(bounded);
-}
-
 /** Provider text reaches terminals here: lines and indents stay, escapes and bidi tricks don't. */
 function answer<Details>(text: string, details: Details): ToolResult<Details> {
-  const clean = text
-    .replaceAll(/\r\n?/g, "\n")
-    .split("\n")
-    .map(stripEscapes)
-    .join("\n")
-    .replaceAll(UNPRINTABLE, "")
-    .replaceAll(/[\u2028\u2029]/g, " ");
-  return { content: [{ type: "text", text: clean }], details };
+  return { content: [{ type: "text", text: sanitizeText(text) }], details };
 }
 
 /** The schema let only text with a non-space through, so a trim never leaves it empty. */
