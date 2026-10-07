@@ -20,9 +20,11 @@ import { GEOCODE_LAYERS } from "./types.ts";
  */
 export abstract class Provider {
   private readonly timeout: number | undefined;
+  private readonly signal: AbortSignal | undefined;
 
   constructor(config: ProviderConfig = {}) {
     this.timeout = config.timeout;
+    this.signal = config.signal;
   }
 
   /** Registry key owned by the concrete class. */
@@ -46,12 +48,18 @@ export abstract class Provider {
     options?: ReverseOptions,
   ): Promise<GeoLocation>;
 
-  /** Execute a provider-attributed GET request using the configured timeout. */
+  /** A provider-attributed GET: its own signal and the configured one both cancel it. */
   protected getJSON<T>(
     url: string,
     options?: Omit<ClientOptions, "provider" | "timeout">,
   ): Promise<T> {
-    return getJSON<T>(url, { ...options, timeout: this.timeout, provider: this.name });
+    const signals = [options?.signal, this.signal].filter((signal) => signal !== undefined);
+    return getJSON<T>(url, {
+      ...options,
+      signal: signals.length > 1 ? AbortSignal.any(signals) : signals[0],
+      timeout: this.timeout,
+      provider: this.name,
+    });
   }
 }
 

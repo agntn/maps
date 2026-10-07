@@ -5,7 +5,7 @@ import type {
   Theme,
   ToolDefinition,
 } from "@oh-my-pi/pi-coding-agent";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 /** Compiled OMP gives an extension only the package root, so loading the TUI barrel has to fail. */
 vi.mock("@oh-my-pi/pi-coding-agent/tui", () => {
@@ -14,7 +14,7 @@ vi.mock("@oh-my-pi/pi-coding-agent/tui", () => {
 
 import mapsOmpExtension from "../../packages/omp/extensions/maps.ts";
 import { mapsTools } from "../../src/tools.ts";
-import { requireTool, stubJSON } from "../helpers.ts";
+import { NETWORKED_CALLS, requireTool, stubJSON, stubPendingFetch } from "../helpers.ts";
 
 /** Stands in for the host `Text`, keeping the drawn line for the assertion. */
 class CapturedText {
@@ -89,6 +89,11 @@ async function statusLine(name: string, args: Record<string, unknown>): Promise<
   const drawn = tool.renderCall?.(args as never, { expanded: false, isPartial: false }, theme);
   return (drawn as unknown as CapturedText).text;
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 describe("maps OMP extension", () => {
   it("registers the complete read-only tool set under an extension label", async () => {
@@ -201,4 +206,27 @@ describe("maps OMP extension", () => {
     expect(result).toMatch(/^Registered providers \(2\):/);
     expect(result).toContain("\n  openstreetmap");
   });
+
+  it.each(NETWORKED_CALLS)(
+    "cancels the requests of %s %j with the host signal",
+    async (name, params) => {
+      vi.stubEnv("WHAT3WORDS_API_KEY", "test-key");
+      const signals = stubPendingFetch();
+      const tool = requireTool((await registerExtensionTools()).tools, name);
+      const controller = new AbortController();
+
+      const pending = tool.execute(
+        "test",
+        params as never,
+        controller.signal,
+        undefined,
+        unusedContext,
+      );
+      await vi.waitFor(() => expect(signals.length).toBeGreaterThan(0));
+      controller.abort();
+
+      await pending.catch(() => undefined);
+      expect(signals.every((signal) => signal.aborted)).toBe(true);
+    },
+  );
 });

@@ -125,6 +125,8 @@ export interface ProviderConfig {
   baseUrl?: string;
   /** Request timeout in milliseconds. Defaults to 15 seconds. */
   timeout?: number;
+  /** Cancels every request the provider makes, on top of the timeout. */
+  signal?: AbortSignal;
 }
 
 /**

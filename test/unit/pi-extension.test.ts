@@ -7,7 +7,7 @@ import type {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import mapsExtension from "../../packages/pi/extensions/maps.ts";
 import { mapsTools } from "../../src/tools.ts";
-import { requireTool, stubJSON } from "../helpers.ts";
+import { NETWORKED_CALLS, requireTool, stubJSON, stubPendingFetch } from "../helpers.ts";
 
 /** SAFETY: the adapter only calls registerTool; reading any other member fails by name. */
 async function registerExtensionTools(): Promise<Map<string, ToolDefinition>> {
@@ -46,6 +46,7 @@ async function text(name: string, params: unknown): Promise<string> {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("maps Pi extension", () => {
@@ -172,4 +173,27 @@ describe("maps Pi extension", () => {
       "address needs at least one non-empty field",
     );
   });
+
+  it.each(NETWORKED_CALLS)(
+    "cancels the requests of %s %j with the host signal",
+    async (name, params) => {
+      vi.stubEnv("WHAT3WORDS_API_KEY", "test-key");
+      const signals = stubPendingFetch();
+      const tool = requireTool(await registerExtensionTools(), name);
+      const controller = new AbortController();
+
+      const pending = tool.execute(
+        "test",
+        params as never,
+        controller.signal,
+        undefined,
+        unusedContext,
+      );
+      await vi.waitFor(() => expect(signals.length).toBeGreaterThan(0));
+      controller.abort();
+
+      await pending.catch(() => undefined);
+      expect(signals.every((signal) => signal.aborted)).toBe(true);
+    },
+  );
 });

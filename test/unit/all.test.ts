@@ -9,7 +9,11 @@ import {
 } from "../../src/core/all.ts";
 import { AuthError, InvalidInputError, RateLimitError } from "../../src/core/errors.ts";
 import { formatGeocodeAll, formatReverseAll } from "../../src/core/format.ts";
+import { Provider, type ProviderConstructor } from "../../src/core/provider.ts";
+import { create, getDefaultURL, register } from "../../src/core/registry.ts";
+import type { GeoLocation, ProviderCapabilities } from "../../src/core/types.ts";
 import "../../src/providers/index.ts";
+import { stubPendingFetch } from "../helpers.ts";
 
 const OSM_PLACE = { lat: "52.23", lon: "21.01", display_name: "Warszawa (OSM)" };
 const GOOGLE_RESPONSE = {
@@ -159,6 +163,90 @@ describe("fallback", () => {
 
     await expect(reverseWithFallback(95, 0)).rejects.toBeInstanceOf(InvalidInputError);
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+/** SAFETY: create() instantiates the ProviderConstructor registered for this key. */
+const googlemapsConstructor = create("googlemaps", { apiKey: "unused" })
+  .constructor as ProviderConstructor;
+const googlemapsDefaultURL = getDefaultURL("googlemaps");
+
+/** Reports any failed request as a rate limit, the way a provider outside this package might. */
+class RateLimitOnFailure extends Provider {
+  static readonly key = "googlemaps";
+
+  get capabilities(): ProviderCapabilities {
+    return { geocode: true, geocodeAddress: false, reverse: false };
+  }
+
+  async geocode(): Promise<GeoLocation[]> {
+    try {
+      return await this.getJSON<GeoLocation[]>("https://example.com/geocode");
+    } catch {
+      throw new RateLimitError(RateLimitOnFailure.key);
+    }
+  }
+
+  async geocodeAddress(): Promise<GeoLocation[]> {
+    return [];
+  }
+
+  async reverse(): Promise<GeoLocation> {
+    throw new Error("not served");
+  }
+}
+
+describe("cancellation", () => {
+  afterEach(() => {
+    register(googlemapsConstructor, googlemapsDefaultURL);
+  });
+
+  it("stops a fallback walk at the provider it reached", async () => {
+    const signals = stubPendingFetch();
+    const controller = new AbortController();
+
+    const pending = geocodeWithFallback("Warszawa", {}, controller.signal);
+    await vi.waitFor(() => expect(signals).toHaveLength(1));
+    controller.abort();
+
+    await expect(pending).rejects.toThrow();
+    expect(signals).toHaveLength(1);
+    expect(signals[0]?.aborted).toBe(true);
+  });
+
+  it("does not walk on when an aborted request comes back as a skippable failure", async () => {
+    vi.stubEnv("GOOGLE_MAPS_API_KEY", "test-key");
+    register(RateLimitOnFailure);
+    const signals = stubPendingFetch();
+    const controller = new AbortController();
+
+    const pending = geocodeWithFallback("Warszawa", {}, controller.signal);
+    await vi.waitFor(() => expect(signals).toHaveLength(1));
+    controller.abort();
+
+    await expect(pending).rejects.toBeInstanceOf(RateLimitError);
+    expect(signals).toHaveLength(1);
+  });
+
+  it.each([
+    ["geocodeAll", (signal: AbortSignal) => geocodeAll("Warszawa", {}, signal)],
+    [
+      "geocodeAddressAll",
+      (signal: AbortSignal) => geocodeAddressAll({ city: "Warszawa" }, {}, signal),
+    ],
+    ["reverseAll", (signal: AbortSignal) => reverseAll(52.23, 21.01, {}, signal)],
+  ])("cancels every request of %s", async (_name, run) => {
+    vi.stubEnv("GOOGLE_MAPS_API_KEY", "test-key");
+    const signals = stubPendingFetch();
+    const controller = new AbortController();
+
+    const pending = run(controller.signal);
+    await vi.waitFor(() => expect(signals).toHaveLength(2));
+    controller.abort();
+    const outcomes = await pending;
+
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
+    expect(outcomes.every((outcome) => outcome.error)).toBe(true);
   });
 });
 

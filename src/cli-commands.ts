@@ -28,8 +28,8 @@ export const reverseCommand = defineTool({
     { additionalProperties: false },
   ),
   cli: { command: "reverse", positional: ["coordinates"] },
-  execute: async ({ coordinates, ...options }) =>
-    (await loadOperations()).reverse({ ...parseCoordinates(coordinates), ...options }),
+  execute: async ({ coordinates, ...options }, { signal }) =>
+    (await loadOperations()).reverse({ ...parseCoordinates(coordinates), ...options }, signal),
 });
 
 export const distanceCommand = defineTool({

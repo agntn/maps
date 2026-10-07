@@ -111,6 +111,7 @@ export async function providers(): Promise<ToolResult<ProvidersDetails>> {
 
 export async function geocode(
   params: Static<typeof geocodeSchema>,
+  signal?: AbortSignal,
 ): Promise<ToolResult<GeocodeDetails>> {
   const query = params.query.trim();
   const view = { raw: params.raw === true };
@@ -121,18 +122,18 @@ export async function geocode(
     layers: params.layers as GeocodeLayer[] | undefined,
   };
   if (isAllProviders(params.provider)) {
-    const outcomes = await geocodeAll(query, options);
+    const outcomes = await geocodeAll(query, options, signal);
     const comparison = serializeOutcomes(outcomes, (found) => trimLocations(found, view.raw));
     return answer(formatGeocodeAll(query, outcomes, view), { comparison });
   }
   let name: string;
   let locations: GeoLocation[];
   if (params.provider) {
-    const selected = selectProvider(params.provider);
+    const selected = selectProvider(params.provider, signal);
     name = selected.name;
     locations = await requireOperation(selected.provider, "geocode")(query, options);
   } else {
-    const fallback = await geocodeWithFallback(query, options);
+    const fallback = await geocodeWithFallback(query, options, signal);
     name = fallback.provider;
     locations = fallback.result;
   }
@@ -144,6 +145,7 @@ export async function geocode(
 
 export async function geocodeAddress(
   params: Static<typeof geocodeAddressSchema>,
+  signal?: AbortSignal,
 ): Promise<ToolResult<GeocodeDetails>> {
   const address = {
     houseNumber: trimmed(params.houseNumber),
@@ -157,18 +159,18 @@ export async function geocodeAddress(
   const options = { limit: params.limit, language: trimmed(params.language) };
   const label = formatAddressLabel(address);
   if (isAllProviders(params.provider)) {
-    const outcomes = await geocodeAddressAll(address, options);
+    const outcomes = await geocodeAddressAll(address, options, signal);
     const comparison = serializeOutcomes(outcomes, (found) => trimLocations(found, view.raw));
     return answer(formatGeocodeAll(label, outcomes, view), { comparison });
   }
   let name: string;
   let locations: GeoLocation[];
   if (params.provider) {
-    const selected = selectProvider(params.provider);
+    const selected = selectProvider(params.provider, signal);
     name = selected.name;
     locations = await requireOperation(selected.provider, "geocodeAddress")(address, options);
   } else {
-    const fallback = await geocodeAddressWithFallback(address, options);
+    const fallback = await geocodeAddressWithFallback(address, options, signal);
     name = fallback.provider;
     locations = fallback.result;
   }
@@ -180,6 +182,7 @@ export async function geocodeAddress(
 
 export async function reverse(
   params: Static<typeof reverseSchema>,
+  signal?: AbortSignal,
 ): Promise<ToolResult<ReverseDetails>> {
   const { latitude, longitude } = params;
   const view = { raw: params.raw === true };
@@ -188,18 +191,18 @@ export async function reverse(
     granularity: params.granularity as ReverseGranularity | undefined,
   };
   if (isAllProviders(params.provider)) {
-    const outcomes = await reverseAll(latitude, longitude, options);
+    const outcomes = await reverseAll(latitude, longitude, options, signal);
     const comparison = serializeOutcomes(outcomes, (found) => trimLocation(found, view.raw));
     return answer(formatReverseAll(outcomes, view), { comparison });
   }
   let name: string;
   let location: GeoLocation;
   if (params.provider) {
-    const selected = selectProvider(params.provider);
+    const selected = selectProvider(params.provider, signal);
     name = selected.name;
     location = await requireOperation(selected.provider, "reverse")(latitude, longitude, options);
   } else {
-    const fallback = await reverseWithFallback(latitude, longitude, options);
+    const fallback = await reverseWithFallback(latitude, longitude, options, signal);
     name = fallback.provider;
     location = fallback.result;
   }
@@ -223,6 +226,7 @@ export async function distance(
 
 export async function convert(
   params: Static<typeof convertSchema>,
+  signal?: AbortSignal,
 ): Promise<ToolResult<CoordinateConversion>> {
   const conversion = await convertCoordinates(params.input.trim(), {
     from: params.from as CoordinateFormat | undefined,
@@ -230,6 +234,7 @@ export async function convert(
     precision: params.precision as CoordinatePrecision | undefined,
     reference: params.reference,
     language: trimmed(params.language),
+    signal,
   });
   return answer(formatConversion(conversion), conversion);
 }

@@ -114,7 +114,7 @@ const to = parseCoordinates("50.0647,19.9450");
 console.log(distanceBetween(from, to));
 ```
 
-Have address parts? Use `provider.geocodeAddress()`. Coordinates? Use `provider.reverse(latitude, longitude)`. Direct calls stick to one provider. For automatic fallback, use `geocodeWithFallback`. For comparison, use `geocodeAll`. Both have structured-address and reverse variants.
+Have address parts? Use `provider.geocodeAddress()`. Coordinates? Use `provider.reverse(latitude, longitude)`. Direct calls stick to one provider. For automatic fallback, use `geocodeWithFallback`. For comparison, use `geocodeAll`. Both have structured-address and reverse variants. Don't feel like waiting? All six take an `AbortSignal` last. `create()` takes one too, as `signal`.
 
 Coordinates in some other notation? `convertCoordinates("34U EC 0083 8658")` reads it and writes the rest.
 
@@ -156,7 +156,7 @@ Or add Maps to an MCP client:
 }
 ```
 
-Read-only tools: `maps_providers`, `maps_geocode`, `maps_address_geocode`, `maps_reverse`, `maps_distance` and `maps_convert`. Every host gets the same set and the same text, indented facts included. The provider's own record stays out. Need `osm_id` or `place_id`? Pass `raw: true`. No need to carry the whole suitcase for a postcode.
+Read-only tools: `maps_providers`, `maps_geocode`, `maps_address_geocode`, `maps_reverse`, `maps_distance` and `maps_convert`. Every host gets the same set and the same text, indented facts included. The provider's own record stays out. Need `osm_id` or `place_id`? Pass `raw: true`. No need to carry the whole suitcase for a postcode. Hit Esc halfway through a geocode and the request dies with the call. The 15 second timeout is there for a slow Nominatim, not for you.
 
 With a built checkout, use `pi install .` or `omp install .`. For MCP, use `node` with the absolute path to `dist/cli.mjs`, followed by `mcp`.
 

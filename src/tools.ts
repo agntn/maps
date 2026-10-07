@@ -127,7 +127,7 @@ export const geocodeTool = defineTool({
     description: "Resolve an address or place to geographic coordinates",
     positional: ["query"],
   },
-  execute: async (params) => (await loadOperations()).geocode(params),
+  execute: async (params, { signal }) => (await loadOperations()).geocode(params, signal),
 });
 
 export const geocodeAddressSchema = Type.Object(
@@ -163,7 +163,7 @@ export const geocodeAddressTool = defineTool({
     command: "address",
     description: "Resolve a structured postal address (street, city, postcode, ...) to coordinates",
   },
-  execute: async (params) => (await loadOperations()).geocodeAddress(params),
+  execute: async (params, { signal }) => (await loadOperations()).geocodeAddress(params, signal),
 });
 
 export const reverseSchema = Type.Object(
@@ -195,7 +195,7 @@ export const reverseTool = defineTool({
   ],
   effect: "read",
   input: reverseSchema,
-  execute: async (params) => (await loadOperations()).reverse(params),
+  execute: async (params, { signal }) => (await loadOperations()).reverse(params, signal),
 });
 
 export const distanceSchema = Type.Object(
@@ -300,7 +300,7 @@ export const convertTool = defineTool({
       "Convert coordinates between decimal degrees, DMS, DDM, geohash, Maidenhead, Plus Code, UTM, MGRS and what3words",
     positional: ["input"],
   },
-  execute: async (params) => (await loadOperations()).convert(params),
+  execute: async (params, { signal }) => (await loadOperations()).convert(params, signal),
 });
 
 /** Every maps tool, in the order hosts list them. */
