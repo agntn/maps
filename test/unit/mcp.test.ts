@@ -5,7 +5,7 @@ import type { ProviderConstructor } from "../../src/core/provider.ts";
 import { create, getDefaultURL, register } from "../../src/core/registry.ts";
 import { createMcpServer } from "../../src/mcp.ts";
 import "../../src/providers/index.ts";
-import { stubJSON } from "../helpers.ts";
+import { NETWORKED_CALLS, stubJSON, stubPendingFetch } from "../helpers.ts";
 
 const openConnections: Array<{ close(): Promise<void> }> = [];
 
@@ -16,6 +16,7 @@ const openstreetmapDefaultURL = getDefaultURL("openstreetmap");
 afterEach(async () => {
   register(openstreetmapConstructor, openstreetmapDefaultURL);
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   await Promise.all(openConnections.splice(0).map((connection) => connection.close()));
 });
 
@@ -452,5 +453,19 @@ describe("Maps MCP server", () => {
 
     const response = await client.callTool({ name: tool, arguments: args });
     expect(failure(response)).toContain(`Operation "${operation}" not supported by openstreetmap`);
+  });
+
+  it.each(NETWORKED_CALLS)("cancels the requests of %s %j with the call", async (name, args) => {
+    vi.stubEnv("WHAT3WORDS_API_KEY", "test-key");
+    const signals = stubPendingFetch();
+    const client = await connectTestClient();
+    const controller = new AbortController();
+
+    const pending = client.callTool({ name, arguments: args }, { signal: controller.signal });
+    await vi.waitFor(() => expect(signals.length).toBeGreaterThan(0));
+    controller.abort();
+
+    await expect(pending).rejects.toThrow();
+    await vi.waitFor(() => expect(signals.every((signal) => signal.aborted)).toBe(true));
   });
 });

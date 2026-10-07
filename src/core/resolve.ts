@@ -53,10 +53,10 @@ export interface SelectedProvider {
  *
  * This is the single selection path shared by the CLI, MCP server, AI tools, and both agent
  * extensions. Empty or whitespace-only arguments count as absent, so a client that sends `""`
- * gets the same behavior as one that omits the field.
+ * gets the same behavior as one that omits the field. A `signal` cancels the provider's requests.
  */
-export function selectProvider(preferred?: string): SelectedProvider {
+export function selectProvider(preferred?: string, signal?: AbortSignal): SelectedProvider {
   const preferredName = preferred?.trim() || undefined;
   const name = resolveProvider(preferredName);
-  return { name, provider: create(name) };
+  return { name, provider: create(name, { signal }) };
 }

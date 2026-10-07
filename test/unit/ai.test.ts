@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { convertTool, geocodeAddressTool, geocodeTool, reverseTool } from "../../src/ai.ts";
-import { stubJSON } from "../helpers.ts";
+import { NETWORKED_CALLS, stubJSON, stubPendingFetch } from "../helpers.ts";
 
 const callOptions = { toolCallId: "test", messages: [] };
 const place = { lat: "52.23", lon: "21.01", display_name: "Warszawa, Polska", osm_id: 336075 };
@@ -8,7 +8,15 @@ const trimmedPlace = { latitude: 52.23, longitude: 21.01, displayName: "Warszawa
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
+
+const AI_TOOLS: Record<string, { execute?: unknown }> = {
+  maps_geocode: geocodeTool,
+  maps_address_geocode: geocodeAddressTool,
+  maps_reverse: reverseTool,
+  maps_convert: convertTool,
+};
 
 describe("Maps AI SDK tools", () => {
   it.each([
@@ -87,4 +95,24 @@ describe("Maps AI SDK tools", () => {
       formats: { decimal: "42.604980, -5.603027" },
     });
   });
+
+  it.each(NETWORKED_CALLS)(
+    "cancels the requests of %s %j with the abort signal",
+    async (name, input) => {
+      vi.stubEnv("WHAT3WORDS_API_KEY", "test-key");
+      const signals = stubPendingFetch();
+      const controller = new AbortController();
+      const execute = AI_TOOLS[name]?.execute as (
+        input: unknown,
+        options: unknown,
+      ) => Promise<unknown>;
+
+      const pending = execute(input, { ...callOptions, abortSignal: controller.signal });
+      await vi.waitFor(() => expect(signals.length).toBeGreaterThan(0));
+      controller.abort();
+
+      await pending.catch(() => undefined);
+      expect(signals.every((signal) => signal.aborted)).toBe(true);
+    },
+  );
 });
