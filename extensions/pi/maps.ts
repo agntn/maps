@@ -5,10 +5,10 @@ import { fileURLToPath } from "node:url";
 import { registerPiTools } from "@agntn/tools/pi";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import type * as MapsTools from "../../../dist/tools.d.mts";
+import type * as MapsTools from "../../dist/tools.d.mts";
 
-const sourceModuleUrl = new URL("../../../src/tools.ts", import.meta.url);
-const distributionModuleUrl = new URL("../../../dist/tools.mjs", import.meta.url);
+const sourceModuleUrl = new URL("../../src/tools.ts", import.meta.url);
+const distributionModuleUrl = new URL("../../dist/tools.mjs", import.meta.url);
 
 /**
  * Load the definitions from the source in a checkout and from the build in the package.

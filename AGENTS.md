@@ -69,7 +69,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 - `src/source-change.ts` - `sourceChangeCheck()`, the newest ctime under `src/` against the process start
 - `src/ai.ts` - Vercel AI SDK tools from `toAiTool`, output `{ ...details, text }`
 - `src/cli.ts` - `runCli` from `@agntn/tools/cli`: one command per tool plus `mcp`. A bare `mcp` from `dist/cli.mjs` inside a checkout serves `src/mcp.ts` instead; `src/cli-commands.ts` holds the CLI-only `reverse` and `distance`, which take a point as one `"latitude,longitude"` word. `MapsError` prints as one line with exit code 1; `EPIPE` ends quietly
-- `packages/pi/extensions/maps.ts`, `packages/omp/extensions/maps.ts` - `registerPiTools` and `registerOmpTools` over `mapsTools`; type-import from `dist/tools.d.mts`. The OMP loader keeps both dynamic imports literal: `existsSync(src)` chooses `import("../../../src/tools.ts")` or `import("../../../dist/tools.mjs")`. An `import(url.href)` loses dependency resolution in the compiled binary. The OMP status line comes from `describeCall`; nothing imports `@oh-my-pi/pi-coding-agent/tui`, which compiled OMP doesn't serve
+- `extensions/pi/maps.ts`, `extensions/omp/maps.ts` - `registerPiTools` and `registerOmpTools` over `mapsTools`; type-import from `dist/tools.d.mts`. The OMP loader keeps both dynamic imports literal: `existsSync(src)` chooses `import("../../../src/tools.ts")` or `import("../../../dist/tools.mjs")`. An `import(url.href)` loses dependency resolution in the compiled binary. The OMP status line comes from `describeCall`; nothing imports `@oh-my-pi/pi-coding-agent/tui`, which compiled OMP doesn't serve
 
 ## CLI subcommands
 

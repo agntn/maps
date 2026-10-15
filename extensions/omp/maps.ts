@@ -5,12 +5,12 @@ import { fileURLToPath } from "node:url";
 import { registerOmpTools } from "@agntn/tools/omp";
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 
-import type * as MapsTools from "../../../dist/tools.d.mts";
+import type * as MapsTools from "../../dist/tools.d.mts";
 
 /** Longest argument on the status line, cut before the adapter's sanitizer sees it. */
 const PREVIEW_LENGTH = 80;
 
-const sourceModulePath = fileURLToPath(new URL("../../../src/tools.ts", import.meta.url));
+const sourceModulePath = fileURLToPath(new URL("../../src/tools.ts", import.meta.url));
 
 /**
  * Source in a checkout, build in the package; compiled OMP resolves only literal specifiers.
@@ -19,9 +19,7 @@ const sourceModulePath = fileURLToPath(new URL("../../../src/tools.ts", import.m
  */
 function loadTools(): Promise<typeof MapsTools> {
   return (
-    existsSync(sourceModulePath)
-      ? import("../../../src/tools.ts")
-      : import("../../../dist/tools.mjs")
+    existsSync(sourceModulePath) ? import("../../src/tools.ts") : import("../../dist/tools.mjs")
   ) as Promise<typeof MapsTools>;
 }
 
