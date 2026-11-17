@@ -122,6 +122,39 @@ async function checkoutServer(patch: Patch = {}) {
   return { checkout, client, ran };
 }
 
+type Era = "legacy" | Readonly<{ pin: string }>;
+
+/** A client of one protocol era on `maps mcp` from the checkout's bin. */
+async function connect(mode: Era, extra: Readonly<Record<string, string>> = {}) {
+  const client = new Client(
+    { name: "maps-test", version: "1.0.0" },
+    { versionNegotiation: { mode } },
+  );
+  clients.push(client);
+  await client.connect(
+    new StdioClientTransport({
+      command: process.execPath,
+      args: [join(root, "dist/cli.mjs"), "mcp"],
+      env: { ...env, ...extra },
+      stderr: "ignore",
+    }),
+  );
+  return client;
+}
+
+const builds = [
+  { from: "source", extra: {} },
+  { from: "bundle", extra: { MAPS_DIST: "1" } },
+] as const;
+const toolNames = [
+  "maps_providers",
+  "maps_geocode",
+  "maps_address_geocode",
+  "maps_reverse",
+  "maps_distance",
+  "maps_convert",
+];
+
 /** Makes the `providers` executor run `statement` first. */
 function before(statement: string): Patch {
   return {
@@ -189,6 +222,25 @@ describe.skipIf(!existsSync(join(root, "dist/cli.mjs")))("maps mcp from the buil
       stderr: 'Invalid arguments: unknown option "--stdio"; takes no options\n',
     });
   });
+
+  it.each(builds)("lets a client pinned to 2026 listen, from the $from", async ({ extra }) => {
+    const client = await connect({ pin: "2026-07-28" }, extra);
+
+    expect(client.getNegotiatedProtocolVersion()).toBe("2026-07-28");
+    const subscription = await client.listen({ toolsListChanged: true });
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(toolNames);
+    await subscription.close();
+  });
+
+  it.each(builds)(
+    "still opens a 2025 client with initialize, from the $from",
+    async ({ extra }) => {
+      const client = await connect("legacy", extra);
+
+      expect(client.getNegotiatedProtocolVersion()).toMatch(/^2025-/u);
+      expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(toolNames);
+    },
+  );
 
   it("answers from src/ while the tree stays as it was", async () => {
     const { client, ran } = await checkoutServer(leavesMark);
