@@ -3,7 +3,7 @@
 import type { ProviderOutcome } from "./all.ts";
 import type { CoordinateConversion } from "./convert.ts";
 import type { ProviderListing } from "./registry.ts";
-import type { BoundingBox, GeoAddress, GeoLocation } from "./types.ts";
+import type { BoundingBox, DistancePath, GeoAddress, GeoLocation } from "./types.ts";
 
 /** What a location text shows besides the normalized fields. */
 export interface LocationTextOptions {
@@ -130,9 +130,22 @@ export function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(2)} km (${Math.round(meters)} m)`;
 }
 
-/** Distance plus initial bearing, the shape the text surfaces print for one measurement. */
-export function formatDistanceBearing(meters: number, bearing: number): string {
-  return `Distance: ${formatDistance(meters)}\nBearing: ${Math.round(bearing * 10) / 10}°`;
+/** How a measurement is labeled in text. */
+export interface DistanceTextOptions {
+  /** Line the distance follows. A rhumb line says so on both rows. */
+  path?: DistancePath;
+}
+
+/** Distance plus bearing, the shape the text surfaces print for one measurement. */
+export function formatDistanceBearing(
+  meters: number,
+  bearing: number,
+  options: DistanceTextOptions = {},
+): string {
+  const rounded = Math.round(bearing * 10) / 10;
+  return options.path === "rhumb"
+    ? `Rhumb distance: ${formatDistance(meters)}\nRhumb bearing: ${rounded}°`
+    : `Distance: ${formatDistance(meters)}\nBearing: ${rounded}°`;
 }
 
 /** Multi-line listing of registered providers and what each can serve. */

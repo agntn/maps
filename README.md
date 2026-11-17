@@ -17,7 +17,7 @@ You want a latitude and longitude, not another afternoon mapping JSON fields. No
 - 🧩 **One result shape out.** WGS 84 coordinates, with address fields and a bounding box when available.
 - 🎯 **A narrower search.** Filter by country or layer: `address`, `poi`, `natural`. Ask for reverse results at country, state, city, street or building level.
 - 🧭 **Every coordinate dialect.** DMS, DDM, geohash, Maidenhead, Plus Codes, UTM and MGRS, converted locally. what3words too, if you bring a key.
-- 📏 **Distance and bearing, offline.** Great-circle distance in meters and initial bearing in degrees. No provider involved.
+- 📏 **Distance and bearing, offline.** Choose a great circle or a rhumb line. Both are calculated locally, without a provider or network.
 - 🤖 **A choice of interfaces.** CLI, TypeScript, MCP, Pi, OMP and Vercel AI SDK tools.
 - 🔀 **Two opinions on one place.** Compare Google and Nominatim side by side. A failed lookup stays visible too.
 
@@ -63,6 +63,19 @@ Bearing: 197.6°
 
 Warsaw to Kraków, from the local build. That's across a sphere, not along the motorway. Your car may have objections.
 
+Want to hold one compass bearing from Tokyo to Los Angeles? Take the rhumb line:
+
+```bash
+maps distance 35.6762,139.6503 34.0522,-118.2437 --path rhumb
+```
+
+```text
+Rhumb distance: 9316.94 km (9316939 m)
+Rhumb bearing: 91.1°
+```
+
+The great circle is 8819 km, starting at 55.5°. The rhumb line holds 91.1° for about 500 km more. Your compass gets an easier job, at a price.
+
 Got a geohash from a puzzle? Paste it:
 
 ```bash
@@ -91,7 +104,7 @@ Cell: 42.5830078125..42.626953125 lat, -5.625..-5.5810546875 lon
 | `geocode`   | A place name or address        | `maps geocode "Rynek, Wrocław"`                               |
 | `address`   | Address parts you already have | `maps address --road Złota --house-number 44 --city Warszawa` |
 | `reverse`   | What's at these coordinates?   | `maps reverse 52.2318,21.0067`                                |
-| `distance`  | Distance and initial bearing   | `maps distance 52.2297,21.0122 50.0647,19.9450`               |
+| `distance`  | Distance and bearing           | `maps distance 52.2297,21.0122 50.0647,19.9450`               |
 | `convert`   | One location, every format     | `maps convert "N 52° 13.782 E 021° 00.732"`                   |
 | `providers` | Provider keys and capabilities | `maps providers`                                              |
 | `mcp`       | A stdio MCP server             | `maps mcp`                                                    |
@@ -117,6 +130,8 @@ console.log(distanceBetween(from, to));
 Have address parts? Use `provider.geocodeAddress()`. Coordinates? Use `provider.reverse(latitude, longitude)`. Direct calls stick to one provider. For automatic fallback, use `geocodeWithFallback`. For comparison, use `geocodeAll`. Both have structured-address and reverse variants. Don't feel like waiting? All six take an `AbortSignal` last. `create()` takes one too, as `signal`.
 
 Coordinates in some other notation? `convertCoordinates("34U EC 0083 8658")` reads it and writes the rest.
+
+Following one compass bearing? `rhumbDistanceBetween(from, to)` gives meters and `rhumbBearingBetween(from, to)` gives degrees from true north.
 
 Address fields are optional. Check `capabilities` for custom providers. Coordinate helpers validate ranges before reverse requests.
 
@@ -166,7 +181,7 @@ Using Vercel AI SDK? Install `ai` too. `@agntn/maps/ai` exports `geocodeTool`, `
 
 ## 🚫 What this does not do
 
-No routes, traffic estimates or map tiles. Distance means great-circle distance, not driving distance. Finding an address doesn't validate it for postal delivery either. UTM and MGRS stop at 80°S and 84°N, the poles need UPS.
+No routes, traffic estimates or map tiles. Distance is measured across a sphere, not along roads. Finding an address doesn't validate it for postal delivery either. UTM and MGRS stop at 80°S and 84°N, the poles need UPS.
 
 ## 🧩 Adding a provider
 

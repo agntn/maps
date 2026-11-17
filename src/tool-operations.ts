@@ -16,7 +16,12 @@ import {
   type CoordinateConversion,
   type CoordinatePrecision,
 } from "./core/convert.ts";
-import { bearingBetween, distanceBetween } from "./core/coordinates.ts";
+import {
+  bearingBetween,
+  distanceBetween,
+  rhumbBearingBetween,
+  rhumbDistanceBetween,
+} from "./core/coordinates.ts";
 import {
   formatAddressLabel,
   formatConversion,
@@ -28,13 +33,16 @@ import {
   formatProviders,
   formatReverseAll,
 } from "./core/format.ts";
+import { InvalidInputError } from "./core/errors.ts";
 import { requireOperation } from "./core/provider.ts";
 import { listProviders, type ProviderListing } from "./core/registry.ts";
 import { isAllProviders, selectProvider } from "./core/resolve.ts";
 import {
+  DISTANCE_PATHS,
   trimLocation,
   trimLocations,
   type CoordinateFormat,
+  type DistancePath,
   type GeoLocation,
   type GeocodeLayer,
   type ReverseGranularity,
@@ -60,6 +68,7 @@ export interface DistanceDetails {
   meters: number;
   formatted: string;
   bearing: number;
+  path: DistancePath;
 }
 
 export interface ProvidersDetails {
@@ -184,15 +193,32 @@ export async function reverse(
   });
 }
 
+/** The schema's enum again, for a caller that reaches the executor without it. */
+function distancePathOf(value: string | undefined): DistancePath {
+  const path = DISTANCE_PATHS.find((known) => known === (value ?? "great-circle"));
+  if (path === undefined) {
+    throw new InvalidInputError(
+      `path must be one of ${DISTANCE_PATHS.join(", ")}, got ${JSON.stringify(value)}`,
+    );
+  }
+  return path;
+}
+
 export async function distance(
   params: Static<typeof distanceSchema>,
 ): Promise<ToolResult<DistanceDetails>> {
-  const meters = distanceBetween(params.from, params.to);
-  const bearing = bearingBetween(params.from, params.to);
-  return answer(formatDistanceBearing(meters, bearing), {
+  const path = distancePathOf(params.path);
+  const [measure, aim] =
+    path === "rhumb"
+      ? [rhumbDistanceBetween, rhumbBearingBetween]
+      : [distanceBetween, bearingBetween];
+  const meters = measure(params.from, params.to);
+  const bearing = aim(params.from, params.to);
+  return answer(formatDistanceBearing(meters, bearing, { path }), {
     meters,
     formatted: formatDistance(meters),
     bearing: Math.round(bearing * 10) / 10,
+    path,
   });
 }
 

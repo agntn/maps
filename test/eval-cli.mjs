@@ -51,6 +51,13 @@ check(
   distance.stdout,
 );
 
+const rhumb = run(["distance", "35,45", "35,135", "--path", "rhumb"]);
+check(
+  "distance follows a rhumb line with --path rhumb",
+  rhumb.status === 0 && rhumb.stdout.includes("Rhumb distance: 8197.71 km"),
+  rhumb.stdout || rhumb.stderr,
+);
+
 const badDistance = run(["distance", "91,0", "0,0"]);
 check(
   "distance rejects an out-of-range latitude",

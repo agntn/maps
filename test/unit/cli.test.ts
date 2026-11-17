@@ -41,6 +41,14 @@ describe("cli", () => {
     });
   });
 
+  it("holds one compass bearing with --path rhumb", () => {
+    expect(maps("distance", "35,45", "35,135", "--path", "rhumb")).toEqual({
+      code: 0,
+      stdout: "Rhumb distance: 8197.71 km (8197711 m)\nRhumb bearing: 90°\n",
+      stderr: "",
+    });
+  });
+
   it("takes a pair that starts with a minus after --", () => {
     const { code, stdout } = maps("distance", "--", "-33.8688,151.2093", "-37.8136,144.9631");
 

@@ -5,6 +5,7 @@ import type { ProviderConstructor } from "../../src/core/provider.ts";
 import { create, getDefaultURL, register } from "../../src/core/registry.ts";
 import { createMcpServer } from "../../src/mcp.ts";
 import "../../src/providers/index.ts";
+import { distance } from "../../src/tool-operations.ts";
 import { NETWORKED_CALLS, stubJSON, stubPendingFetch } from "../helpers.ts";
 
 const openConnections: Array<{ close(): Promise<void> }> = [];
@@ -325,6 +326,31 @@ describe("Maps MCP server", () => {
       }),
     );
     expect(text).toBe("Distance: 111.20 km (111195 m)\nBearing: 90°");
+  });
+
+  it("measures along a rhumb line when the path asks for one", async () => {
+    const client = await connectTestClient();
+    const points = { from: { latitude: 35, longitude: 45 }, to: { latitude: 35, longitude: 135 } };
+
+    const rhumb = await client.callTool({
+      name: "maps_distance",
+      arguments: { ...points, path: "rhumb" },
+    });
+    const unknown = await client.callTool({
+      name: "maps_distance",
+      arguments: { ...points, path: "loxodrome" },
+    });
+
+    expect(answer(rhumb)).toBe("Rhumb distance: 8197.71 km (8197711 m)\nRhumb bearing: 90°");
+    expect(failure(unknown)).toContain("great-circle");
+  });
+
+  it("refuses an unknown path past the schema too", async () => {
+    const origin = { latitude: 0, longitude: 0 };
+
+    await expect(distance({ from: origin, to: origin, path: "loxodrome" })).rejects.toThrow(
+      'path must be one of great-circle, rhumb, got "loxodrome"',
+    );
   });
 
   it("converts coordinates locally and returns the cell", async () => {

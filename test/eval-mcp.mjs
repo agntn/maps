@@ -119,6 +119,21 @@ check(
   firstText(distance),
 );
 
+const rhumb = await client.callTool({
+  name: "maps_distance",
+  arguments: {
+    from: { latitude: 35, longitude: 45 },
+    to: { latitude: 35, longitude: 135 },
+    path: "rhumb",
+  },
+});
+check(
+  "distance follows a rhumb line on request",
+  rhumb.isError !== true &&
+    firstText(rhumb) === "Rhumb distance: 8197.71 km (8197711 m)\nRhumb bearing: 90°",
+  firstText(rhumb),
+);
+
 const convert = await client.callTool({
   name: "maps_convert",
   arguments: { input: "ezs42", to: ["decimal", "maidenhead"] },
