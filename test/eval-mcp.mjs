@@ -13,8 +13,8 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 const CLI = fileURLToPath(new URL("../dist/cli.mjs", import.meta.url));
 const LIVE = process.env.MAPS_EVAL_OFFLINE !== "1";
 
-/** Credentials are dropped so provider auto-selection stays deterministic. */
-const env = { ...process.env, DEBUG: "1" };
+/** No credentials, so auto-selection stays put. MAPS_DIST=1 keeps this gate on the bundle. */
+const env = { ...process.env, DEBUG: "1", MAPS_DIST: "1" };
 delete env.GOOGLE_MAPS_API_KEY;
 delete env.WHAT3WORDS_API_KEY;
 
