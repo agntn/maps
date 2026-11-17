@@ -13,9 +13,6 @@ export interface GeoPoint {
 /** IUGG mean Earth radius. */
 const EARTH_RADIUS_METERS = 6_371_008.8;
 
-/** Mercator step below which a course counts as running along a parallel. */
-const PARALLEL_STEP = 1e-11;
-
 function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
@@ -108,19 +105,26 @@ interface RhumbSteps {
   stretched: number;
 }
 
+/** Mercator latitude step between two latitudes in degrees. Infinite at a pole, as on the chart. */
+function mercatorStep(from: number, to: number): number {
+  if (from === to) return 0;
+  if (Math.abs(from) === 90 || Math.abs(to) === 90) return to > from ? Infinity : -Infinity;
+  const half = Math.sin(toRadians(to - from) / 2);
+  const middle = Math.cos(toRadians((from + to) / 2));
+  const spread = 2 * half * half + Math.cos(toRadians(from)) * Math.cos(toRadians(to));
+  return Math.atanh(Math.max(-1, Math.min(1, (2 * middle * half) / spread)));
+}
+
 /** Rhumb steps in radians, longitude the shorter way round. */
 function rhumbSteps(from: GeoPoint, to: GeoPoint): RhumbSteps {
   assertCoordinates(from.latitude, from.longitude);
   assertCoordinates(to.latitude, to.longitude);
-  const start = toRadians(from.latitude);
-  const end = toRadians(to.latitude);
   const longitude = toRadians(to.longitude - from.longitude);
-  const stretched = Math.log(Math.tan(Math.PI / 4 + end / 2) / Math.tan(Math.PI / 4 + start / 2));
   return {
-    latitude: end - start,
+    latitude: toRadians(to.latitude - from.latitude),
     longitude:
       Math.abs(longitude) > Math.PI ? longitude - Math.sign(longitude) * 2 * Math.PI : longitude,
-    stretched: Number.isNaN(stretched) ? 0 : stretched,
+    stretched: mercatorStep(from.latitude, to.latitude),
   };
 }
 
@@ -140,8 +144,7 @@ function rhumbSteps(from: GeoPoint, to: GeoPoint): RhumbSteps {
  */
 export function rhumbDistanceBetween(from: GeoPoint, to: GeoPoint): number {
   const { latitude, longitude, stretched } = rhumbSteps(from, to);
-  const ratio =
-    Math.abs(stretched) > PARALLEL_STEP ? latitude / stretched : Math.cos(toRadians(from.latitude));
+  const ratio = stretched === 0 ? Math.cos(toRadians(from.latitude)) : latitude / stretched;
   return EARTH_RADIUS_METERS * Math.hypot(latitude, ratio * longitude);
 }
 

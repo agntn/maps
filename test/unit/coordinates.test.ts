@@ -153,13 +153,6 @@ const RHUMB_LINES = [
     meters: 40307.8008732988,
     bearing: 116.72185980258678,
   },
-  {
-    name: "a climb to the north pole",
-    from: { latitude: 60, longitude: 10 },
-    to: { latitude: 90, longitude: 50 },
-    meters: 3336479.0877815015,
-    bearing: 1.110512395989861,
-  },
 ] as const;
 
 describe("rhumb lines", () => {
@@ -185,6 +178,35 @@ describe("rhumb lines", () => {
 
     expect(rhumbBearingBetween(from, to)).toBe(0);
     expect(rhumbDistanceBetween(from, to)).toBeCloseTo(distanceBetween(from, to), 6);
+  });
+
+  /** Both limits are the parallel itself: R * cos(35 deg) * pi / 2, and half the equator. */
+  it("stays steady when the latitudes differ by a hair", () => {
+    const from = { latitude: 35, longitude: 45 };
+    const to = { latitude: 35.000000001, longitude: 135 };
+    const equator = { latitude: 0, longitude: 0 };
+    const across = { latitude: 1e-9, longitude: 180 };
+
+    expect(rhumbDistanceBetween(from, to)).toBeCloseTo(8197710.956, 2);
+    expect(rhumbDistanceBetween(to, from)).toBe(rhumbDistanceBetween(from, to));
+    expect(rhumbDistanceBetween(equator, across)).toBeCloseTo(20015114.442, 2);
+  });
+
+  /** Every meridian ends at the pole, so the way there is the meridian arc: R * pi / 6. */
+  it("climbs straight to a pole, whatever its longitude", () => {
+    const north = { latitude: 90, longitude: 50 };
+    const south = { latitude: -90, longitude: 50 };
+
+    expect(rhumbDistanceBetween({ latitude: 60, longitude: 10 }, north)).toBeCloseTo(
+      3335852.407,
+      3,
+    );
+    expect(rhumbBearingBetween({ latitude: 60, longitude: 10 }, north)).toBe(0);
+    expect(rhumbBearingBetween(north, { latitude: 60, longitude: 10 })).toBe(180);
+    expect(rhumbDistanceBetween({ latitude: -60, longitude: 10 }, south)).toBe(
+      rhumbDistanceBetween({ latitude: 60, longitude: 10 }, north),
+    );
+    expect(rhumbBearingBetween({ latitude: -60, longitude: 10 }, south)).toBe(180);
   });
 
   it("is zero between a point and itself, the south pole included", () => {
