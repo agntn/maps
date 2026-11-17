@@ -2,7 +2,7 @@
 
 ## Scope
 
-Unified geocoding provider library. Normalizes forward geocoding (free-form and structured-address input), reverse geocoding, and structured address output across providers, with coordinate validation, local great-circle distance plus bearing (haversine) and coordinate format conversion in core. Exports a CLI (`maps` binary), a programmatic API, an MCP server (`@agntn/maps/mcp`), Vercel AI SDK tools (`@agntn/maps/ai`), and Pi/OMP extensions. Every surface but the library takes one tool list from `src/tools.ts` through the `@agntn/tools` adapters.
+Unified geocoding provider library. Normalizes forward geocoding (free-form and structured-address input), reverse geocoding, and structured address output across providers, with coordinate validation, local distance plus bearing along the great circle (haversine) or a rhumb line, and coordinate format conversion in core. Exports a CLI (`maps` binary), a programmatic API, an MCP server (`@agntn/maps/mcp`), Vercel AI SDK tools (`@agntn/maps/ai`), and Pi/OMP extensions. Every surface but the library takes one tool list from `src/tools.ts` through the `@agntn/tools` adapters.
 
 ## Providers
 
@@ -51,7 +51,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 ## Key files
 
 - `src/core/types.ts` - GeoLocation, GeoAddress, BoundingBox, options, capabilities, config, `clampMaxResults`, `compactAddress`
-- `src/core/coordinates.ts` - WGS 84 validation, `parseCoordinates("lat,lon")`, `distanceBetween` and `bearingBetween` (haversine, IUGG mean radius, no network)
+- `src/core/coordinates.ts` - WGS 84 validation, `parseCoordinates("lat,lon")`, `distanceBetween` and `bearingBetween` (haversine, IUGG mean radius, no network), `rhumbDistanceBetween` and `rhumbBearingBetween` on the same sphere
 - `src/core/provider.ts` - abstract `Provider` base class (`geocode`, `reverse`); `requireOperation()` capability gate
 - `src/core/errors.ts` - error hierarchy + `normalizeError` + URL sanitization
 - `src/core/registry.ts` - self-registering provider registry (register, create, providers, has, getDefaultURL, listProviders)
@@ -70,7 +70,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 ## CLI subcommands
 
-`providers`, `geocode`, `address`, `reverse`, `distance`, `convert`, `mcp`. Flags come from the tool schemas in kebab case (`--provider`, `--language`, `--limit`, `--house-number`), with no short aliases; arrays and objects take JSON (`--layers '["poi"]'`, `--precision '{"geohash":5}'`, `--reference '{"latitude":52.2,"longitude":21}'`). `--json` prints the details. `geocode` and `convert` take their input as one positional word, so quote DMS. `reverse` and `distance` take positional `"latitude,longitude"` pairs; a pair starting with a minus needs a `--` separator first, and options go before it.
+`providers`, `geocode`, `address`, `reverse`, `distance`, `convert`, `mcp`. Flags come from the tool schemas in kebab case (`--provider`, `--language`, `--limit`, `--house-number`), with no short aliases; arrays and objects take JSON (`--layers '["poi"]'`, `--precision '{"geohash":5}'`, `--reference '{"latitude":52.2,"longitude":21}'`). `--json` prints the details. `geocode` and `convert` take their input as one positional word, so quote DMS. `reverse` and `distance` take positional `"latitude,longitude"` pairs; a pair starting with a minus needs a `--` separator first, and options go before it. `distance --path rhumb` follows one compass bearing instead of the great circle (`DISTANCE_PATHS` in `core/types.ts`, shared by the tool and the command through `distancePath`).
 
 ## Constraints
 

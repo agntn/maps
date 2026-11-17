@@ -90,6 +90,12 @@ export interface GeocodeOptions {
   layers?: GeocodeLayer[];
 }
 
+/** Lines a distance is measured along: the shortest way, or one constant compass bearing. */
+export const DISTANCE_PATHS = ["great-circle", "rhumb"] as const;
+
+/** One entry of `DISTANCE_PATHS`. */
+export type DistancePath = (typeof DISTANCE_PATHS)[number];
+
 /** Result granularity accepted by reverse geocoding, coarsest first. */
 export const REVERSE_GRANULARITIES = ["country", "state", "city", "street", "building"] as const;
 

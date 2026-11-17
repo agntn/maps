@@ -8,7 +8,12 @@ import {
   type TString,
   type ToolDefinition,
 } from "@agntn/tools";
-import { COORDINATE_FORMATS, GEOCODE_LAYERS, REVERSE_GRANULARITIES } from "./core/types.ts";
+import {
+  COORDINATE_FORMATS,
+  DISTANCE_PATHS,
+  GEOCODE_LAYERS,
+  REVERSE_GRANULARITIES,
+} from "./core/types.ts";
 
 type ToolOperations = typeof import("./tool-operations.ts");
 
@@ -198,8 +203,17 @@ export const reverseTool = defineTool({
   execute: async (params, { signal }) => (await loadOperations()).reverse(params, signal),
 });
 
+/** Shared with the CLI's `distance`, which takes its points as pasted pairs. */
+export const distancePath = Type.Optional(
+  Type.String({
+    enum: [...DISTANCE_PATHS],
+    description:
+      "Line to measure along: great-circle is the shortest way (default), rhumb holds one compass bearing",
+  }),
+);
+
 export const distanceSchema = Type.Object(
-  { from: point("Start point"), to: point("End point") },
+  { from: point("Start point"), to: point("End point"), path: distancePath },
   { additionalProperties: false },
 );
 
@@ -207,11 +221,12 @@ export const distanceTool = defineTool({
   name: "maps_distance",
   title: "Measure Distance",
   description:
-    "Great-circle distance in meters and initial bearing between two coordinate pairs (haversine, computed locally)",
+    "Distance in meters and bearing between two coordinate pairs, computed locally: the great circle with its initial bearing, or with path rhumb the line of one constant bearing",
   snippet: "Use maps_distance to measure how far apart two coordinate pairs are.",
   guidelines: [
     "Use maps_distance with two latitude/longitude pairs; it computes locally without any network call.",
-    "maps_distance returns the great-circle distance in meters and the initial bearing in degrees from north.",
+    "maps_distance returns meters and degrees from north: the great circle with its initial bearing unless path says otherwise.",
+    "Pass path 'rhumb' to maps_distance when a task says to hold one compass bearing, as navigation and geocaching puzzles do.",
   ],
   effect: "read",
   input: distanceSchema,

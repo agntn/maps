@@ -4,6 +4,7 @@ import "./providers/index.ts";
 export { version } from "./version.ts";
 export type {
   BoundingBox,
+  DistancePath,
   GeoAddress,
   GeoLocation,
   GeocodeLayer,
@@ -15,6 +16,7 @@ export type {
 } from "./core/types.ts";
 export {
   COORDINATE_FORMATS,
+  DISTANCE_PATHS,
   GEOCODE_LAYERS,
   REVERSE_GRANULARITIES,
   clampMaxResults,
@@ -57,6 +59,8 @@ export {
   isValidLatitude,
   isValidLongitude,
   parseCoordinates,
+  rhumbBearingBetween,
+  rhumbDistanceBetween,
 } from "./core/coordinates.ts";
 export type { GeoPoint } from "./core/coordinates.ts";
 export {
@@ -106,4 +110,4 @@ export {
   formatProviders,
   formatReverseAll,
 } from "./core/format.ts";
-export type { LocationTextOptions } from "./core/format.ts";
+export type { DistanceTextOptions, LocationTextOptions } from "./core/format.ts";

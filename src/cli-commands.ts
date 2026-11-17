@@ -3,7 +3,7 @@
 import { defineTool, Type } from "@agntn/tools";
 import { parseCoordinates } from "./core/coordinates.ts";
 import { REVERSE_GRANULARITIES } from "./core/types.ts";
-import { loadOperations } from "./tools.ts";
+import { distancePath, loadOperations } from "./tools.ts";
 
 const filled = (description: string) => Type.String({ pattern: "\\S", description });
 
@@ -36,16 +36,21 @@ export const distanceCommand = defineTool({
   name: "maps_distance_pair",
   title: "Measure Distance",
   description:
-    'Great-circle distance between two "latitude,longitude" pairs (put "--" before a pair that starts with a minus)',
+    'Distance and bearing between two "latitude,longitude" pairs, along the great circle or a rhumb line (put "--" before a pair that starts with a minus)',
   effect: "read",
   input: Type.Object(
     {
       from: filled('Start point as "latitude,longitude", for example 52.2297,21.0122'),
       to: filled('End point as "latitude,longitude", for example 50.0647,19.9450'),
+      path: distancePath,
     },
     { additionalProperties: false },
   ),
   cli: { command: "distance", positional: ["from", "to"] },
-  execute: async ({ from, to }) =>
-    (await loadOperations()).distance({ from: parseCoordinates(from), to: parseCoordinates(to) }),
+  execute: async ({ from, to, path }) =>
+    (await loadOperations()).distance({
+      from: parseCoordinates(from),
+      to: parseCoordinates(to),
+      path,
+    }),
 });

@@ -13,6 +13,13 @@ export interface GeoPoint {
 /** IUGG mean Earth radius. */
 const EARTH_RADIUS_METERS = 6_371_008.8;
 
+/** Mercator step below which a course counts as running along a parallel. */
+const PARALLEL_STEP = 1e-11;
+
+function toRadians(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
 /** True when `value` is a finite latitude between -90 and 90 inclusive. */
 export function isValidLatitude(value: number): boolean {
   return Number.isFinite(value) && value >= -90 && value <= 90;
@@ -65,7 +72,6 @@ export function assertCoordinates(latitude: number, longitude: number, provider?
 export function distanceBetween(from: GeoPoint, to: GeoPoint): number {
   assertCoordinates(from.latitude, from.longitude);
   assertCoordinates(to.latitude, to.longitude);
-  const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
   const deltaLatitude = toRadians(to.latitude - from.latitude);
   const deltaLongitude = toRadians(to.longitude - from.longitude);
   const a =
@@ -86,7 +92,6 @@ export function distanceBetween(from: GeoPoint, to: GeoPoint): number {
 export function bearingBetween(from: GeoPoint, to: GeoPoint): number {
   assertCoordinates(from.latitude, from.longitude);
   assertCoordinates(to.latitude, to.longitude);
-  const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
   const deltaLongitude = toRadians(to.longitude - from.longitude);
   const y = Math.sin(deltaLongitude) * Math.cos(toRadians(to.latitude));
   const x =
@@ -95,6 +100,61 @@ export function bearingBetween(from: GeoPoint, to: GeoPoint): number {
       Math.cos(toRadians(to.latitude)) *
       Math.cos(deltaLongitude);
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+interface RhumbSteps {
+  latitude: number;
+  longitude: number;
+  stretched: number;
+}
+
+/** Rhumb steps in radians, longitude the shorter way round. */
+function rhumbSteps(from: GeoPoint, to: GeoPoint): RhumbSteps {
+  assertCoordinates(from.latitude, from.longitude);
+  assertCoordinates(to.latitude, to.longitude);
+  const start = toRadians(from.latitude);
+  const end = toRadians(to.latitude);
+  const longitude = toRadians(to.longitude - from.longitude);
+  const stretched = Math.log(Math.tan(Math.PI / 4 + end / 2) / Math.tan(Math.PI / 4 + start / 2));
+  return {
+    latitude: end - start,
+    longitude:
+      Math.abs(longitude) > Math.PI ? longitude - Math.sign(longitude) * 2 * Math.PI : longitude,
+    stretched: Number.isNaN(stretched) ? 0 : stretched,
+  };
+}
+
+/**
+ * Rhumb line distance in meters between two WGS 84 points.
+ *
+ * One compass bearing held all the way, on the same mean sphere as `distanceBetween`. Never
+ * shorter than the great circle. Crosses the antimeridian when that's the shorter way round.
+ *
+ * @example
+ *   ```ts
+ *   rhumbDistanceBetween({ latitude: 35, longitude: 45 }, { latitude: 35, longitude: 135 });
+ *   // ~8197711, against ~7871780 along the great circle
+ *   ```
+ *
+ * @throws {InvalidInputError} When either point is out of range or not finite.
+ */
+export function rhumbDistanceBetween(from: GeoPoint, to: GeoPoint): number {
+  const { latitude, longitude, stretched } = rhumbSteps(from, to);
+  const ratio =
+    Math.abs(stretched) > PARALLEL_STEP ? latitude / stretched : Math.cos(toRadians(from.latitude));
+  return EARTH_RADIUS_METERS * Math.hypot(latitude, ratio * longitude);
+}
+
+/**
+ * Constant rhumb line bearing from one WGS 84 point toward another, in degrees.
+ *
+ * Measured clockwise from true north, 0 through 360. Hold it all the way and you arrive.
+ *
+ * @throws {InvalidInputError} When either point is out of range or not finite.
+ */
+export function rhumbBearingBetween(from: GeoPoint, to: GeoPoint): number {
+  const { longitude, stretched } = rhumbSteps(from, to);
+  return ((Math.atan2(longitude, stretched) * 180) / Math.PI + 360) % 360;
 }
 
 /**

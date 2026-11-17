@@ -140,6 +140,25 @@ describe("maps Pi extension", () => {
       meters: expect.closeTo(111195.08, 1),
       formatted: "111.20 km (111195 m)",
       bearing: 90,
+      path: "great-circle",
+    });
+  });
+
+  it("measures along a rhumb line and says so in the details", async () => {
+    const result = await run("maps_distance", {
+      from: { latitude: 35, longitude: 45 },
+      to: { latitude: 35, longitude: 135 },
+      path: "rhumb",
+    });
+
+    expect(result.content).toEqual([
+      { type: "text", text: "Rhumb distance: 8197.71 km (8197711 m)\nRhumb bearing: 90°" },
+    ]);
+    expect(result.details).toEqual({
+      meters: expect.closeTo(8197710.956, 2),
+      formatted: "8197.71 km (8197711 m)",
+      bearing: 90,
+      path: "rhumb",
     });
   });
 

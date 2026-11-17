@@ -7,6 +7,8 @@ import {
   isValidLatitude,
   isValidLongitude,
   parseCoordinates,
+  rhumbBearingBetween,
+  rhumbDistanceBetween,
 } from "../../src/core/coordinates.ts";
 import { InvalidInputError } from "../../src/core/errors.ts";
 
@@ -118,6 +120,90 @@ describe("bearingBetween", () => {
     expect(() =>
       bearingBetween({ latitude: 91, longitude: 0 }, { latitude: 0, longitude: 0 }),
     ).toThrow(InvalidInputError);
+  });
+});
+
+/** Expected values from geodesy 2.4.0 `rhumbDistanceTo` and `rhumbBearingTo` on the same radius. */
+const RHUMB_LINES = [
+  {
+    name: "Warsaw to Krakow",
+    from: { latitude: 52.2297, longitude: 21.0122 },
+    to: { latitude: 50.0647, longitude: 19.945 },
+    meters: 251979.1353069291,
+    bearing: 197.17912391554168,
+  },
+  {
+    name: "Tokyo to Los Angeles, east across the antimeridian",
+    from: { latitude: 35.6762, longitude: 139.6503 },
+    to: { latitude: 34.0522, longitude: -118.2437 },
+    meters: 9316938.558108708,
+    bearing: 91.11057576846312,
+  },
+  {
+    name: "Fiji, west across the antimeridian",
+    from: { latitude: -17.7134, longitude: -178.065 },
+    to: { latitude: -18.1416, longitude: 178.4419 },
+    meters: 372610.33112149115,
+    bearing: 262.65842845066135,
+  },
+  {
+    name: "Dover to Calais",
+    from: { latitude: 51.127, longitude: 1.338 },
+    to: { latitude: 50.964, longitude: 1.853 },
+    meters: 40307.8008732988,
+    bearing: 116.72185980258678,
+  },
+  {
+    name: "a climb to the north pole",
+    from: { latitude: 60, longitude: 10 },
+    to: { latitude: 90, longitude: 50 },
+    meters: 3336479.0877815015,
+    bearing: 1.110512395989861,
+  },
+] as const;
+
+describe("rhumb lines", () => {
+  it.each(RHUMB_LINES)("matches geodesy for $name", ({ from, to, meters, bearing }) => {
+    expect(rhumbDistanceBetween(from, to)).toBeCloseTo(meters, 3);
+    expect(rhumbBearingBetween(from, to)).toBeCloseTo(bearing, 9);
+  });
+
+  /** A quarter turn along the 35th parallel is R * cos(35 deg) * pi / 2. */
+  it("runs due east along a parallel, longer than the great circle", () => {
+    const from = { latitude: 35, longitude: 45 };
+    const to = { latitude: 35, longitude: 135 };
+
+    expect(rhumbBearingBetween(from, to)).toBe(90);
+    expect(rhumbBearingBetween(to, from)).toBe(270);
+    expect(rhumbDistanceBetween(from, to)).toBeCloseTo(8197710.9559, 3);
+    expect(distanceBetween(from, to)).toBeCloseTo(7871779.972, 2);
+  });
+
+  it("is the great circle itself along a meridian", () => {
+    const from = { latitude: -10, longitude: 30 };
+    const to = { latitude: 25, longitude: 30 };
+
+    expect(rhumbBearingBetween(from, to)).toBe(0);
+    expect(rhumbDistanceBetween(from, to)).toBeCloseTo(distanceBetween(from, to), 6);
+  });
+
+  it("is zero between a point and itself, the south pole included", () => {
+    const pole = { latitude: -90, longitude: 0 };
+
+    expect(rhumbDistanceBetween(pole, pole)).toBe(0);
+    expect(rhumbBearingBetween(pole, pole)).toBe(0);
+    expect(rhumbDistanceBetween(RHUMB_LINES[0].from, RHUMB_LINES[0].from)).toBe(0);
+  });
+
+  it("rejects out-of-range points", () => {
+    const origin = { latitude: 0, longitude: 0 };
+
+    expect(() => rhumbDistanceBetween({ latitude: 91, longitude: 0 }, origin)).toThrow(
+      InvalidInputError,
+    );
+    expect(() => rhumbBearingBetween(origin, { latitude: 0, longitude: 181 })).toThrow(
+      InvalidInputError,
+    );
   });
 });
 
