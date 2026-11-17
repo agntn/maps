@@ -105,14 +105,16 @@ interface RhumbSteps {
   stretched: number;
 }
 
+/** Cosine of a latitude in degrees, from its distance to the pole: exactly zero at 90. */
+function cosLatitude(degrees: number): number {
+  return Math.sin(toRadians(90 - Math.abs(degrees)));
+}
+
 /** Mercator latitude step between two latitudes in degrees. Infinite at a pole, as on the chart. */
 function mercatorStep(from: number, to: number): number {
   if (from === to) return 0;
-  if (Math.abs(from) === 90 || Math.abs(to) === 90) return to > from ? Infinity : -Infinity;
-  const half = Math.sin(toRadians(to - from) / 2);
-  const middle = Math.cos(toRadians((from + to) / 2));
-  const spread = 2 * half * half + Math.cos(toRadians(from)) * Math.cos(toRadians(to));
-  return Math.atanh(Math.max(-1, Math.min(1, (2 * middle * half) / spread)));
+  const sines = 2 * Math.cos(toRadians((from + to) / 2)) * Math.sin(toRadians(to - from) / 2);
+  return Math.asinh(sines / (cosLatitude(from) * cosLatitude(to)));
 }
 
 /** Rhumb steps in radians, longitude the shorter way round. */
@@ -144,7 +146,7 @@ function rhumbSteps(from: GeoPoint, to: GeoPoint): RhumbSteps {
  */
 export function rhumbDistanceBetween(from: GeoPoint, to: GeoPoint): number {
   const { latitude, longitude, stretched } = rhumbSteps(from, to);
-  const ratio = stretched === 0 ? Math.cos(toRadians(from.latitude)) : latitude / stretched;
+  const ratio = stretched === 0 ? cosLatitude(from.latitude) : latitude / stretched;
   return EARTH_RADIUS_METERS * Math.hypot(latitude, ratio * longitude);
 }
 

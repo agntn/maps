@@ -209,6 +209,16 @@ describe("rhumb lines", () => {
     expect(rhumbBearingBetween({ latitude: -60, longitude: 10 }, south)).toBe(180);
   });
 
+  /** Expected values from the same formulas at 50 digits (mpmath). */
+  it("keeps the longitude in play a hair short of both poles", () => {
+    const from = { latitude: -89.999, longitude: 0 };
+    const to = { latitude: 89.999, longitude: 180 };
+
+    expect(rhumbDistanceBetween(from, to)).toBeCloseTo(20196032.425649, 3);
+    expect(rhumbBearingBetween(from, to)).toBeCloseTo(7.67957822011, 9);
+    expect(rhumbDistanceBetween(from, to)).toBeGreaterThan(distanceBetween(from, to));
+  });
+
   it("is zero between a point and itself, the south pole included", () => {
     const pole = { latitude: -90, longitude: 0 };
 
