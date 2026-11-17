@@ -1,13 +1,13 @@
 /**
- * Packed-package gate: pack the tarball, install it cleanly without peers, and prove the
- * published entries share one provider registry.
+ * Packed-package gate: pack the tarball, install it cleanly without peers, resolve it next to every
+ * host it names as a peer, and prove the published entries share one provider registry.
  *
  * This is the layer repository tests cannot see: a registry chunk split between dist entries, a
  * runtime dependency missing from `dependencies`, or a file dropped from `files` all surface
  * here first. Set MAPS_EVAL_KEEP=1 to keep the temp install for manual inspection.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,6 +49,27 @@ check(
   "npm install of the tarball and a test client succeeds without peers",
   install.status === 0,
   install.stderr,
+);
+
+/** Hosts at the versions this checkout runs, with no `--legacy-peer-deps` to hide an ERESOLVE. */
+const hosts = Object.keys(
+  JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).peerDependencies,
+).map(
+  (name) =>
+    `${name}@${JSON.parse(readFileSync(join(ROOT, "node_modules", name, "package.json"), "utf8")).version}`,
+);
+const hostDir = mkdtempSync(join(tmpdir(), "maps-hosts-"));
+writeFileSync(join(hostDir, "package.json"), "{}");
+const withHosts = spawnSync(
+  "npm",
+  ["install", "--dry-run", "--no-audit", "--no-fund", join(ROOT, tarballName), ...hosts],
+  { cwd: hostDir, encoding: "utf8", timeout: 300_000 },
+);
+rmSync(hostDir, { recursive: true, force: true });
+check(
+  `npm resolves the tarball next to ${hosts.join(", ")}`,
+  withHosts.status === 0,
+  withHosts.stderr,
 );
 
 /**
