@@ -129,7 +129,7 @@ const badLayer = run(["geocode", "Supreme Court", "--layers", '["poi","railway"]
 check(
   "geocode rejects an unknown layer",
   badLayer.status === 1 &&
-    badLayer.stderr.includes("/layers/1") &&
+    badLayer.stderr.includes("/1 of --layers") &&
     badLayer.stderr.includes("address, poi, natural"),
   badLayer.stderr,
 );

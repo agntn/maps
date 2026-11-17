@@ -12,6 +12,8 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      MAPS_EVAL_OFFLINE: "1"
     strategy:
       matrix:
         node-version: [26]
@@ -38,3 +40,12 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Eval CLI
+        run: pnpm test:cli
+
+      - name: Eval MCP
+        run: pnpm test:mcp
+
+      - name: Eval packed
+        run: pnpm test:packed
