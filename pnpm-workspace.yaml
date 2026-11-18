@@ -1,10 +1,31 @@
-packages:
-  - packages/*
 allowBuilds:
   "@google/genai": false
   esbuild: true
   onnxruntime-node: false
   protobufjs: false
   sharp: false
+
 minimumReleaseAgeExclude:
   - "@agntn/*"
+
+catalogs:
+  deps:
+    "@agntn/tools": 0.3.1
+    "@modelcontextprotocol/server": 2.2.0
+  dev:
+    "@earendil-works/pi-coding-agent": 1.5.2
+    "@modelcontextprotocol/client": 2.2.0
+    "@oh-my-pi/pi-coding-agent": 18.0.0
+    "@types/node": 26.2.0
+    ai: 7.0.127
+    changelogen: 0.6.2
+    obuild: 0.4.43
+    oxfmt: 0.63.0
+    oxlint: 1.78.0
+    typescript: 7.0.2
+    vitest: 4.1.12
+
+cleanupUnusedCatalogs: true
+
+# Keeps pnpm 12's env document out of the lockfile. GitHub reads that one as zero dependencies.
+pmOnFail: ignore

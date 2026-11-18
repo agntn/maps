@@ -92,7 +92,7 @@ Subprocess gates in `test/eval-*.mjs`, each runnable on its own:
 
 - `pnpm test:cli` - every subcommand spawned against the built binary: exit codes, error messages, help screens, live Nominatim calls spaced past the 1 req/s policy
 - `pnpm test:mcp` - the built stdio server through a real `StdioClientTransport` with `DEBUG=1` and `MAPS_DIST=1`, so it stays on the bundle, plus a raw spawn asserting stdout carries only JSON-RPC frames
-- `pnpm test:packed` - `pnpm pack`, tarball installed with `npm install --legacy-peer-deps` in a temp dir, then resolved by `npm install --dry-run` next to every peer host at its dev pin without that flag, a provider registered through the main entry read back through the `/mcp` entry (catches registry chunk splits, missing deps and broken `files`), and the packed CLI smoke
+- `pnpm test:packed` - `pnpm pack`, a manifest with no `catalog:` left in it, tarball installed with `npm install --legacy-peer-deps` in a temp dir, then resolved by `npm install --dry-run` next to every peer host at its dev pin without that flag, a provider registered through the main entry read back through the `/mcp` entry (catches registry chunk splits, missing deps and broken `files`), and the packed CLI smoke
 
 `MAPS_EVAL_OFFLINE=1` skips the live calls in the first two; `MAPS_EVAL_KEEP=1` keeps the packed temp install for inspection.
 
