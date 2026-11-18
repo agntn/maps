@@ -19,8 +19,8 @@
   },
   "files": [
     "dist",
-    "packages/omp/extensions",
-    "packages/pi/extensions"
+    "extensions/omp",
+    "extensions/pi"
   ],
   "type": "module",
   "main": "./dist/index.mjs",
@@ -92,12 +92,12 @@
   "packageManager": "pnpm@12.21.0",
   "omp": {
     "extensions": [
-      "./packages/omp/extensions/maps.ts"
+      "./extensions/omp/maps.ts"
     ]
   },
   "pi": {
     "extensions": [
-      "./packages/pi/extensions/maps.ts"
+      "./extensions/pi/maps.ts"
     ]
   }
 }

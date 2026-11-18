@@ -5,7 +5,7 @@ import type {
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import mapsExtension from "../../packages/pi/extensions/maps.ts";
+import mapsExtension from "../../extensions/pi/maps.ts";
 import { mapsTools } from "../../src/tools.ts";
 import { NETWORKED_CALLS, requireTool, stubJSON, stubPendingFetch } from "../helpers.ts";
 

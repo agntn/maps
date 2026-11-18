@@ -177,7 +177,7 @@ With a built checkout, use `pi install .` or `omp install .`. For MCP, use `node
 
 Using Vercel AI SDK? Install `ai` too. `@agntn/maps/ai` exports `geocodeTool`, `geocodeAddressTool`, `reverseTool`, `distanceTool`, `convertTool` and `providersTool`. You get the data back, with that same text in `text`. The `raw` flag works there too. Bring your own MCP transport with the `@agntn/maps/mcp` export, `createMcpServer`.
 
-[Tool definitions](./src/tools.ts) · [MCP server](./src/mcp.ts) · [AI SDK tools](./src/ai.ts) · [Pi](./packages/pi/extensions/maps.ts) · [OMP](./packages/omp/extensions/maps.ts)
+[Tool definitions](./src/tools.ts) · [MCP server](./src/mcp.ts) · [AI SDK tools](./src/ai.ts) · [Pi](./extensions/pi/maps.ts) · [OMP](./extensions/omp/maps.ts)
 
 ## 🚫 What this does not do
 

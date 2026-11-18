@@ -12,7 +12,7 @@ vi.mock("@oh-my-pi/pi-coding-agent/tui", () => {
   throw new Error("The OMP host does not inject the TUI barrel");
 });
 
-import mapsOmpExtension from "../../packages/omp/extensions/maps.ts";
+import mapsOmpExtension from "../../extensions/omp/maps.ts";
 import { mapsTools } from "../../src/tools.ts";
 import { NETWORKED_CALLS, requireTool, stubJSON, stubPendingFetch } from "../helpers.ts";
 

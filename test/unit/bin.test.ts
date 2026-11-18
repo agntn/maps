@@ -199,7 +199,7 @@ describe.skipIf(!existsSync(join(root, "dist/cli.mjs")))("maps mcp from the buil
   });
 
   it("keeps the bundle in a package that ships no src", () => {
-    const packaged = copy(temp(), "dist", "packages", "package.json");
+    const packaged = copy(temp(), "dist", "extensions", "package.json");
     symlinkSync(join(root, "node_modules"), join(packaged, "node_modules"), "dir");
 
     expect(serve(packaged)).toEqual(served("bundle"));
