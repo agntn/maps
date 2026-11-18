@@ -1,6 +1,6 @@
 {
   "name": "@agntn/maps",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Unified geocoding and maps provider library for humans and agents",
   "keywords": [
     "omp-extension",
