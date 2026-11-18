@@ -32,6 +32,15 @@ check(
   pack.stderr,
 );
 
+const packedManifest = spawnSync("tar", ["-xOf", join(ROOT, tarballName), "package/package.json"], {
+  encoding: "utf8",
+});
+check(
+  "the packed manifest names versions, not catalogs",
+  packedManifest.status === 0 && !packedManifest.stdout.includes("catalog:"),
+  packedManifest.stdout + packedManifest.stderr,
+);
+
 const dir = mkdtempSync(join(tmpdir(), "maps-packed-"));
 const install = spawnSync(
   "npm",
