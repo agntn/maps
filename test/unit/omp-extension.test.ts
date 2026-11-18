@@ -5,7 +5,7 @@ import type {
   Theme,
   ToolDefinition,
 } from "@oh-my-pi/pi-coding-agent";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 /** Compiled OMP gives an extension only the package root, so loading the TUI barrel has to fail. */
 vi.mock("@oh-my-pi/pi-coding-agent/tui", () => {
@@ -192,8 +192,8 @@ describe("maps OMP extension", () => {
   });
 
   it("strips terminal control sequences from model arguments on the status line", async () => {
-    const ESC = String.fromCharCode(27);
-    const BEL = String.fromCharCode(7);
+    const ESC = String.fromCodePoint(27);
+    const BEL = String.fromCodePoint(7);
 
     await expect(
       statusLine("maps_geocode", { query: `evil${ESC}[31mred${BEL}bell\nnext` }),

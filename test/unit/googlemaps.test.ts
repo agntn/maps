@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   AuthError,
   InvalidInputError,
@@ -6,7 +6,7 @@ import {
   RateLimitError,
 } from "../../src/core/errors.ts";
 import { create } from "../../src/core/registry.ts";
-import { stubJSON } from "../helpers.ts";
+import { requestedUrl, stubJSON } from "../helpers.ts";
 import "../../src/providers/googlemaps.ts";
 
 const WARSAW_RESULT = {
@@ -78,7 +78,7 @@ describe("googlemaps provider", () => {
       country: "PL",
     });
 
-    const url = String(fetch.mock.calls[0]?.[0]);
+    const url = requestedUrl(fetch);
     expect(url).toContain("address=44+Z%C5%82ota");
     expect(url).toContain("components=locality%3AWarszawa%7Ccountry%3APL");
   });
@@ -157,7 +157,7 @@ describe("googlemaps provider", () => {
 
     await createConfigured().geocode("Warszawa", { language: "pl", countryCodes: ["pl", "de"] });
 
-    const url = String(fetch.mock.calls[0]?.[0]);
+    const url = requestedUrl(fetch);
     expect(url).toContain("language=pl");
     expect(url).toContain(`components=${encodeURIComponent("country:PL|country:DE")}`);
     expect(url).toContain("key=test-key");
@@ -189,7 +189,7 @@ describe("googlemaps provider", () => {
     const address = await provider.geocodeAddress({ road: "Supreme Ct" }, { layers: ["address"] });
     const everything = await provider.geocode("Supreme Court", { layers: [] });
 
-    expect(String(fetch.mock.calls[0]?.[0])).not.toContain("layer");
+    expect(requestedUrl(fetch)).not.toContain("layer");
     expect(poi.map((location) => location.displayName)).toEqual([
       "1 First St NE, Washington, DC 20543, USA",
       "Thurgood Marshall Federal Judiciary Building, Washington, DC, USA",
@@ -244,7 +244,7 @@ describe("googlemaps provider", () => {
 
     await createConfigured().reverse(52.2297, 21.0122, { granularity: "city" });
 
-    expect(String(fetch.mock.calls[0]?.[0])).toContain("result_type=locality");
+    expect(requestedUrl(fetch)).toContain("result_type=locality");
   });
 
   it("turns an empty reverse response into NotFoundError", async () => {

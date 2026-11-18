@@ -86,7 +86,7 @@ Live verification performed before scaffolding, per the agntn scaffold procedure
 
 ## Testing
 
-`pnpm test` (vitest, mocked via `vi.stubGlobal("fetch", ...)`; `client.test.ts` also runs the client against a loopback `node:http` server, `cli.test.ts` spawns `src/cli.ts`, once with stdout already closed; `bin.test.ts` starts `dist/cli.mjs mcp` and skips its 14 tests without a built `dist/`). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` and `WHAT3WORDS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The Pi and OMP extension tests register into strict host doubles that throw on any member they don't stub; the OMP one makes importing `/tui` throw, since compiled OMP doesn't serve it.
+`pnpm test` (`vp test run`, mocked via `vi.stubGlobal("fetch", ...)`; `client.test.ts` also runs the client against a loopback `node:http` server, `cli.test.ts` spawns `src/cli.ts`, once with stdout already closed; `bin.test.ts` starts `dist/cli.mjs mcp` and skips its 14 tests without a built `dist/`). `test/setup.ts` deletes `GOOGLE_MAPS_API_KEY` and `WHAT3WORDS_API_KEY` so a configured host cannot flip auto-selection or leak live requests. The Pi and OMP extension tests register into strict host doubles that throw on any member they don't stub; the OMP one makes importing `/tui` throw, since compiled OMP doesn't serve it.
 
 Subprocess gates in `test/eval-*.mjs`, each runnable on its own:
 
@@ -101,7 +101,7 @@ Subprocess gates in `test/eval-*.mjs`, each runnable on its own:
 ```bash
 pnpm build       # obuild → dist/ (one bundle: index, cli, mcp, ai)
 pnpm typecheck   # tsc → build → tsc -p tsconfig.extensions.json
-pnpm test        # vitest --run
-pnpm fmt         # oxlint --fix + oxfmt
-pnpm lint        # oxlint + oxfmt --check
+pnpm test        # vp test run
+pnpm fmt         # build → vp lint --fix → vp fmt
+pnpm lint        # build → vp lint → vp fmt --check
 ```

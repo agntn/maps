@@ -13,14 +13,19 @@ export interface ParsedDegrees {
 }
 
 type Token =
-  | { kind: "number"; text: string }
-  | { kind: "hemisphere"; letter: "N" | "S" | "E" | "W" }
-  | { kind: "unit"; unit: "degree" | "minute" | "second" }
-  | { kind: "separator" };
+  | { readonly kind: "number"; readonly text: string }
+  | { readonly kind: "hemisphere"; readonly letter: "N" | "S" | "E" | "W" }
+  | { readonly kind: "unit"; readonly unit: "degree" | "minute" | "second" }
+  | { readonly kind: "separator" };
 
 const NOTATION_BY_COUNT: Record<number, DegreeNotation> = { 1: "decimal", 2: "ddm", 3: "dms" };
 
-/** Typographic primes and degree lookalikes folded onto the ASCII marks the tokenizer reads. */
+/**
+ * Typographic primes and degree lookalikes folded onto the ASCII marks the tokenizer reads.
+ *
+ * @param input - Coordinates as written.
+ * @returns {string} The same text with ASCII marks.
+ */
 function normalizeMarks(input: string): string {
   return input
     .replaceAll(/[º˚]/g, "°")
@@ -28,6 +33,13 @@ function normalizeMarks(input: string): string {
     .replaceAll(/[″“”]|''/g, '"');
 }
 
+/**
+ * Cut the text into numbers, hemisphere letters, unit marks and separators.
+ *
+ * @param input - Coordinates as written.
+ * @returns {Token[]} The tokens in order.
+ * @throws {InvalidInputError} When a character fits none of them.
+ */
 function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
   const pattern = /\s+|([+-]?\d+(?:\.\d+)?)|([NSEW])|([°'"])|([,;])|(.)/giu;
@@ -51,11 +63,19 @@ function tokenize(input: string): Token[] {
 
 /** One axis: its numbers in order, an optional hemisphere letter and the unit marks it used. */
 interface Axis {
-  numbers: string[];
-  hemisphere?: "N" | "S" | "E" | "W";
+  readonly numbers: readonly string[];
+  readonly hemisphere?: "N" | "S" | "E" | "W";
 }
 
-function axisFromTokens(tokens: Token[], input: string): Axis {
+/**
+ * Collect one axis's numbers and check its unit marks come in order.
+ *
+ * @param tokens - The tokens of one axis.
+ * @param input - Coordinates as written, for the error.
+ * @returns {Axis} The axis without a hemisphere.
+ * @throws {InvalidInputError} When a mark is out of place.
+ */
+function axisFromTokens(tokens: readonly Token[], input: string): Axis {
   const numbers: string[] = [];
   let expected = 0;
   for (const token of tokens) {
@@ -73,8 +93,14 @@ function axisFromTokens(tokens: Token[], input: string): Axis {
   return { numbers };
 }
 
-/** Split the token stream into two axes, by hemisphere letters when there are any. */
-function splitAxes(tokens: Token[], input: string): [Axis, Axis] {
+/**
+ * Split the token stream into two axes, by hemisphere letters when there are any.
+ *
+ * @param tokens - Every token of the text.
+ * @param input - Coordinates as written, for the error.
+ * @returns {[Axis, Axis]} The axes in the order written.
+ */
+function splitAxes(tokens: readonly Token[], input: string): [Axis, Axis] {
   const letters = tokens.flatMap((token, index) => (token.kind === "hemisphere" ? [index] : []));
   if (letters.length === 2) {
     const [first, second] = letters as [number, number];
@@ -125,8 +151,14 @@ function splitAxes(tokens: Token[], input: string): [Axis, Axis] {
   return [axisFromTokens(tokens.slice(0, half), input), axisFromTokens(tokens.slice(half), input)];
 }
 
-/** Degrees from one axis's numbers; minutes and seconds must stay below 60. */
-function axisValue(axis: Axis, input: string): number {
+/**
+ * Refuse an axis whose parts can't be an angle.
+ *
+ * @param axis - One axis.
+ * @param input - Coordinates as written, for the error.
+ * @throws {InvalidInputError} When a part is out of place or out of range.
+ */
+function checkParts(axis: Axis, input: string): void {
   if (axis.numbers.length < 1 || axis.numbers.length > 3) {
     throw new InvalidInputError(`Expected degrees, minutes and seconds at most in "${input}"`);
   }
@@ -140,19 +172,46 @@ function axisValue(axis: Axis, input: string): number {
   if (values.slice(1).some((value) => value >= 60)) {
     throw new InvalidInputError(`Minutes and seconds must be below 60 in "${input}"`);
   }
-  const negative = axis.numbers[0]?.startsWith("-") ?? false;
-  if (negative && axis.hemisphere) {
+}
+
+/**
+ * Whether the axis points south or west, by its sign or its letter.
+ *
+ * @param axis - One axis.
+ * @param input - Coordinates as written, for the error.
+ * @returns {boolean} True for a negative angle.
+ * @throws {InvalidInputError} When the axis carries both a minus and a letter.
+ */
+function isNegative(axis: Axis, input: string): boolean {
+  const minus = axis.numbers[0]?.startsWith("-") === true;
+  if (minus && axis.hemisphere) {
     throw new InvalidInputError(`Use either a minus sign or a hemisphere letter in "${input}"`);
   }
-  const [degrees = 0, minutes = 0, seconds = 0] = values.map(Math.abs);
+  return minus || axis.hemisphere === "S" || axis.hemisphere === "W";
+}
+
+/**
+ * Degrees from one axis's numbers; minutes and seconds must stay below 60.
+ *
+ * @param axis - One axis.
+ * @param input - Coordinates as written, for the error.
+ * @returns {number} Signed decimal degrees.
+ */
+function axisValue(axis: Axis, input: string): number {
+  checkParts(axis, input);
+  const negative = isNegative(axis, input);
+  const [degrees = 0, minutes = 0, seconds = 0] = axis.numbers.map((text) =>
+    Math.abs(Number(text)),
+  );
   const magnitude = degrees + minutes / 60 + seconds / 3600;
-  const south = negative || axis.hemisphere === "S" || axis.hemisphere === "W";
-  return south ? -magnitude : magnitude;
+  return negative ? -magnitude : magnitude;
 }
 
 /**
  * Read `52.2297, 21.0122`, `52°13'46.9"N 21°0'43.9"E` or `N 52° 13.782 E 021° 00.732`.
  *
+ * @param input - Coordinates as written.
+ * @returns {ParsedDegrees} The pair and its notation.
  * @throws {InvalidInputError} When the text is not a pair of angles in range.
  */
 export function parseDegrees(input: string): ParsedDegrees {
@@ -177,18 +236,37 @@ export function parseDegrees(input: string): ParsedDegrees {
   return { notation, point: { latitude, longitude } };
 }
 
-/** Fixed decimals without a stray "-0". */
+/**
+ * Fixed decimals without a stray "-0".
+ *
+ * @param value - The number.
+ * @param decimals - Places to keep.
+ * @returns {string} The text.
+ */
 function fixed(value: number, decimals: number): string {
   const text = value.toFixed(decimals);
   return /^-0(?:\.0*)?$/.test(text) ? text.slice(1) : text;
 }
 
-/** `52.229700, 21.012200` with `decimals` places. */
+/**
+ * `52.229700, 21.012200` with `decimals` places.
+ *
+ * @param point - The pair to write.
+ * @param decimals - Places to keep.
+ * @returns {string} The text.
+ */
 export function formatDecimal(point: GeoPoint, decimals = 6): string {
   return `${fixed(point.latitude, decimals)}, ${fixed(point.longitude, decimals)}`;
 }
 
-/** Whole units of the last part, rounded once so 59.96" carries into the next minute. */
+/**
+ * Whole units of the last part, rounded once so 59.96" carries into the next minute.
+ *
+ * @param value - Signed decimal degrees.
+ * @param parts - 2 for DDM, 3 for DMS.
+ * @param decimals - Places on the last part.
+ * @returns {{ negative: boolean; degrees: number; minutes: number; seconds?: number }} The parts.
+ */
 function splitAngle(value: number, parts: 2 | 3, decimals: number) {
   const scale = 10 ** decimals;
   const perDegree = (parts === 3 ? 3600 : 60) * scale;
@@ -205,7 +283,13 @@ function splitAngle(value: number, parts: 2 | 3, decimals: number) {
   };
 }
 
-/** `52°13'46.9"N 21°0'43.9"E`, the way Google Maps writes DMS, `decimals` places on seconds. */
+/**
+ * `52°13'46.9"N 21°0'43.9"E`, the way Google Maps writes DMS, `decimals` places on seconds.
+ *
+ * @param point - The pair to write.
+ * @param decimals - Places on seconds.
+ * @returns {string} The text.
+ */
 export function formatDms(point: GeoPoint, decimals = 1): string {
   const axis = (value: number, positive: string, negative: string): string => {
     const angle = splitAngle(value, 3, decimals);
@@ -215,7 +299,13 @@ export function formatDms(point: GeoPoint, decimals = 1): string {
   return `${axis(point.latitude, "N", "S")} ${axis(point.longitude, "E", "W")}`;
 }
 
-/** `N 52° 13.782' E 021° 00.732'`, the geocaching layout, `decimals` places on minutes. */
+/**
+ * `N 52° 13.782' E 021° 00.732'`, the geocaching layout, `decimals` places on minutes.
+ *
+ * @param point - The pair to write.
+ * @param decimals - Places on minutes.
+ * @returns {string} The text.
+ */
 export function formatDdm(point: GeoPoint, decimals = 3): string {
   const axis = (value: number, width: number, positive: string, negative: string): string => {
     const angle = splitAngle(value, 2, decimals);

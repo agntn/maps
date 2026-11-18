@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   geocodeAddressAll,
   geocodeAll,
@@ -13,7 +13,7 @@ import { Provider, type ProviderConstructor } from "../../src/core/provider.ts";
 import { create, getDefaultURL, register } from "../../src/core/registry.ts";
 import type { GeoLocation, ProviderCapabilities } from "../../src/core/types.ts";
 import "../../src/providers/index.ts";
-import { stubPendingFetch } from "../helpers.ts";
+import { stubPendingFetch, urlOf } from "../helpers.ts";
 
 const OSM_PLACE = { lat: "52.23", lon: "21.01", display_name: "Warszawa (OSM)" };
 const GOOGLE_RESPONSE = {
@@ -29,7 +29,7 @@ const GOOGLE_RESPONSE = {
 /** Route the stub by URL: Nominatim search returns a list, reverse a single object. */
 function stubRoutedFetch() {
   const fetch = vi.fn(async (input: RequestInfo | URL) => {
-    const url = String(input);
+    const url = urlOf(input);
     const body = url.includes("nominatim")
       ? url.includes("/reverse")
         ? OSM_PLACE
@@ -122,7 +122,7 @@ describe("fallback", () => {
   it("falls past an in-body auth failure to the next provider", async () => {
     vi.stubEnv("GOOGLE_MAPS_API_KEY", "dummy");
     const fetch = vi.fn(async (input: RequestInfo | URL) => {
-      const body = String(input).includes("nominatim")
+      const body = urlOf(input).includes("nominatim")
         ? [OSM_PLACE]
         : { status: "REQUEST_DENIED", results: [], error_message: "denied" };
       return new Response(JSON.stringify(body), {
@@ -257,9 +257,8 @@ describe("serializeOutcomes", () => {
     const serialized = serializeOutcomes(await geocodeAll("Warszawa"));
 
     expect(serialized[0]?.result?.[0]?.displayName).toBe("Warszawa (OSM)");
-    expect(serialized[1]).toEqual({
-      provider: "googlemaps",
-      error: expect.stringContaining("GOOGLE_MAPS_API_KEY"),
-    });
+    expect(serialized[1]?.provider).toBe("googlemaps");
+    expect(serialized[1]?.error).toContain("GOOGLE_MAPS_API_KEY");
+    expect(serialized[1]).not.toHaveProperty("result");
   });
 });

@@ -1,12 +1,12 @@
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { Provider } from "../../src/core/provider.ts";
 import type { ProviderConstructor } from "../../src/core/provider.ts";
 import { create, getDefaultURL, register } from "../../src/core/registry.ts";
 import { createMcpServer } from "../../src/mcp.ts";
 import "../../src/providers/index.ts";
 import { distance } from "../../src/tool-operations.ts";
-import { NETWORKED_CALLS, stubJSON, stubPendingFetch } from "../helpers.ts";
+import { NETWORKED_CALLS, requestedUrl, stubJSON, stubPendingFetch } from "../helpers.ts";
 
 const openConnections: Array<{ close(): Promise<void> }> = [];
 
@@ -428,7 +428,7 @@ describe("Maps MCP server", () => {
       arguments: { query: "Supreme Court", layers: ["poi"], provider: "openstreetmap" },
     });
     expect(answer(response)).toBe('[openstreetmap] No matches for "Supreme Court"');
-    expect(String(fetch.mock.calls[0]?.[0])).toContain("layer=poi");
+    expect(requestedUrl(fetch)).toContain("layer=poi");
 
     const rejected = await client.callTool({
       name: "maps_geocode",
@@ -447,7 +447,7 @@ describe("Maps MCP server", () => {
       arguments: { query: "Springfield", countryCodes: [" US "], provider: "openstreetmap" },
     });
     expect(answer(padded)).toBe('[openstreetmap] No matches for "Springfield"');
-    expect(String(fetch.mock.calls[0]?.[0])).toContain("countrycodes=us");
+    expect(requestedUrl(fetch)).toContain("countrycodes=us");
 
     const short = await client.callTool({
       name: "maps_geocode",

@@ -8,7 +8,6 @@ import type {
   ReverseOptions,
 } from "./types.ts";
 import { getJSON } from "./client.ts";
-import type { ClientOptions } from "./client.ts";
 import { InvalidInputError, UnsupportedOperationError } from "./errors.ts";
 import { GEOCODE_LAYERS } from "./types.ts";
 
@@ -27,32 +26,62 @@ export abstract class Provider {
     this.signal = config.signal;
   }
 
-  /** Registry key owned by the concrete class. */
+  /**
+   * Registry key owned by the concrete class.
+   *
+   * @returns {string} The key.
+   */
   get name(): string {
     return (this.constructor as ProviderConstructor).key;
   }
 
-  /** Operations this provider can actually serve. */
+  /**
+   * Operations this provider can actually serve.
+   *
+   * @returns {ProviderCapabilities} One flag per operation.
+   */
   abstract get capabilities(): ProviderCapabilities;
 
-  /** Resolve a free-form place or address query to coordinates, best match first. */
+  /**
+   * Resolve a free-form place or address query to coordinates, best match first.
+   *
+   * @param query - Place or address to look up.
+   * @param options - Limit, language and filters.
+   * @returns {Promise<GeoLocation[]>} The matches.
+   */
   abstract geocode(query: string, options?: GeocodeOptions): Promise<GeoLocation[]>;
 
-  /** Resolve a structured postal address (street, city, postcode, ...) to coordinates. */
+  /**
+   * Resolve a structured postal address (street, city, postcode, ...) to coordinates.
+   *
+   * @param address - Address parts to look up.
+   * @param options - Limit, language and filters.
+   * @returns {Promise<GeoLocation[]>} The matches.
+   */
   abstract geocodeAddress(address: GeoAddress, options?: GeocodeOptions): Promise<GeoLocation[]>;
 
-  /** Resolve a coordinate pair to the place at or nearest to it. */
+  /**
+   * Resolve a coordinate pair to the place at or nearest to it.
+   *
+   * @param latitude - Latitude in decimal degrees.
+   * @param longitude - Longitude in decimal degrees.
+   * @param options - Language and granularity.
+   * @returns {Promise<GeoLocation>} The place.
+   */
   abstract reverse(
     latitude: number,
     longitude: number,
     options?: ReverseOptions,
   ): Promise<GeoLocation>;
 
-  /** A provider-attributed GET: its own signal and the configured one both cancel it. */
-  protected getJSON<T>(
-    url: string,
-    options?: Omit<ClientOptions, "provider" | "timeout">,
-  ): Promise<T> {
+  /**
+   * A provider-attributed GET: its own signal and the configured one both cancel it.
+   *
+   * @param url - Address to fetch.
+   * @param options - Headers and a signal for this request.
+   * @returns {Promise<T>} The parsed body.
+   */
+  protected getJSON<T>(url: string, options?: RequestOptions): Promise<T> {
     const signals = [options?.signal, this.signal].filter((signal) => signal !== undefined);
     return getJSON<T>(url, {
       ...options,
@@ -61,6 +90,12 @@ export abstract class Provider {
       provider: this.name,
     });
   }
+}
+
+/** What one provider request may set; the provider fills in the rest. */
+interface RequestOptions {
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly signal?: AbortSignal;
 }
 
 /** Concrete provider class accepted by the registry. */
@@ -73,6 +108,8 @@ export interface ProviderConstructor {
 /**
  * Reject an empty or whitespace-only geocoding query before any request is sent.
  *
+ * @param query - The query as given.
+ * @param provider - Provider to blame.
  * @throws {InvalidInputError} When `query` carries no content.
  */
 export function assertQuery(query: string, provider: string): void {
@@ -84,6 +121,8 @@ export function assertQuery(query: string, provider: string): void {
 /**
  * Reject a structured address with no usable field before any request is sent.
  *
+ * @param address - The address as given.
+ * @param provider - Provider to blame.
  * @throws {InvalidInputError} When every address field is absent or whitespace-only.
  */
 export function assertAddress(address: GeoAddress, provider: string): void {
@@ -99,6 +138,8 @@ export function assertAddress(address: GeoAddress, provider: string): void {
  * Reject a layer outside `GEOCODE_LAYERS` before any request is sent, so a host that skips
  * schema validation gets the same answer as one that enforces it.
  *
+ * @param layers - The layers as given.
+ * @param provider - Provider to blame.
  * @throws {InvalidInputError} When `layers` names a layer the library does not define.
  */
 export function assertLayers(layers: readonly string[] | undefined, provider: string): void {
@@ -117,6 +158,9 @@ export type ProviderOperation = keyof ProviderCapabilities;
 /**
  * Return a bound provider method after checking its capability flag.
  *
+ * @param provider - The provider to ask.
+ * @param operation - `geocode`, `geocodeAddress` or `reverse`.
+ * @returns {Provider[K]} The method, bound to its provider.
  * @throws {UnsupportedOperationError} When the provider does not serve the operation.
  */
 export function requireOperation<K extends ProviderOperation>(

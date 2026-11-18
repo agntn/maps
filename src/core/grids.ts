@@ -10,6 +10,15 @@ export interface GridCell {
   bounds: BoundingBox;
 }
 
+/**
+ * A cell from its edges.
+ *
+ * @param south - Southern edge.
+ * @param west - Western edge.
+ * @param north - Northern edge.
+ * @param east - Eastern edge.
+ * @returns {GridCell} The box and its middle.
+ */
 function cell(south: number, west: number, north: number, east: number): GridCell {
   return {
     center: { latitude: (south + north) / 2, longitude: (west + east) / 2 },
@@ -17,13 +26,26 @@ function cell(south: number, west: number, north: number, east: number): GridCel
   };
 }
 
+/**
+ * Refuse a code length the format doesn't have.
+ *
+ * @param length - Requested length.
+ * @param allowed - Whether a whole number is one of the format's lengths.
+ * @param rule - The lengths in words, for the error.
+ * @throws {InvalidInputError} When the length isn't allowed.
+ */
 function assertLength(length: number, allowed: (value: number) => boolean, rule: string): void {
   if (!Number.isInteger(length) || !allowed(length)) {
     throw new InvalidInputError(`${rule}, got ${length}`);
   }
 }
 
-/** Longitude folded into -180..180, so 180 and -180 land in the same cell. */
+/**
+ * Longitude folded into -180..180, so 180 and -180 land in the same cell.
+ *
+ * @param longitude - Any longitude.
+ * @returns {number} The same meridian in range.
+ */
 function wrapLongitude(longitude: number): number {
   return ((((longitude + 180) % 360) + 360) % 360) - 180;
 }
@@ -36,6 +58,9 @@ const GEOHASH_MAX_LENGTH = 20;
 /**
  * Geohash of a point, `length` characters long (1 to 20).
  *
+ * @param point - The point to encode.
+ * @param length - Characters to write.
+ * @returns {string} The geohash.
  * @throws {InvalidInputError} When the point is out of range or the length is not supported.
  */
 export function encodeGeohash(point: GeoPoint, length = 9): string {
@@ -73,6 +98,8 @@ export function encodeGeohash(point: GeoPoint, length = 9): string {
 /**
  * The cell a geohash names. Upper case is read too.
  *
+ * @param code - The geohash.
+ * @returns {GridCell} Its box and middle.
  * @throws {InvalidInputError} When the text holds a character outside the geohash alphabet.
  */
 export function decodeGeohash(code: string): GridCell {
@@ -113,6 +140,9 @@ const MAIDENHEAD_FINEST = MAIDENHEAD_STEPS.reduce((product, step) => product * s
 /**
  * Maidenhead locator of a point, 2 to 10 characters (`KO02` is the square, `KO02mf` the subsquare).
  *
+ * @param point - The point to encode.
+ * @param length - Characters to write.
+ * @returns {string} The locator.
  * @throws {InvalidInputError} When the point is out of range or the length is odd or outside 2-10.
  */
 export function encodeMaidenhead(point: GeoPoint, length = 6): string {
@@ -139,7 +169,7 @@ export function encodeMaidenhead(point: GeoPoint, length = 6): string {
     code +=
       step === 10
         ? `${column}${row}`
-        : String.fromCharCode((pair === 0 ? 65 : 97) + column, (pair === 0 ? 65 : 97) + row);
+        : String.fromCodePoint((pair === 0 ? 65 : 97) + column, (pair === 0 ? 65 : 97) + row);
   }
   return code;
 }
@@ -147,6 +177,8 @@ export function encodeMaidenhead(point: GeoPoint, length = 6): string {
 /**
  * The cell a Maidenhead locator names, any letter case.
  *
+ * @param locator - The locator.
+ * @returns {GridCell} Its box and middle.
  * @throws {InvalidInputError} When the text is not a 2 to 10 character locator.
  */
 export function decodeMaidenhead(locator: string): GridCell {
@@ -163,7 +195,8 @@ export function decodeMaidenhead(locator: string): GridCell {
     const step = MAIDENHEAD_STEPS[pair] as number;
     unit /= step;
     const [column, row] = [text[pair * 2] as string, text[pair * 2 + 1] as string].map(
-      (character) => (step === 10 ? Number(character) : character.toUpperCase().charCodeAt(0) - 65),
+      (character) =>
+        step === 10 ? Number(character) : (character.toUpperCase().codePointAt(0) ?? 65) - 65,
     ) as [number, number];
     x += column * unit;
     y += row * unit;
@@ -197,6 +230,9 @@ const PLUS_LNG_PRECISION = PLUS_PAIR_PRECISION * PLUS_GRID_COLUMNS ** 5;
  *   encodePlusCode({ latitude: 47.0000625, longitude: 8.0000625 }); // "8FVC2222+22"
  *   ```
  *
+ * @param point - The point to encode.
+ * @param length - Digits to write.
+ * @returns {string} The code.
  * @throws {InvalidInputError} When the point is out of range or the length is not a valid one.
  */
 export function encodePlusCode(point: GeoPoint, length = 10): string {
@@ -244,28 +280,63 @@ export function encodePlusCode(point: GeoPoint, length = 10): string {
   return `${digits.slice(0, PLUS_SEPARATOR_POSITION)}+${digits.slice(PLUS_SEPARATOR_POSITION)}`;
 }
 
-/** Why a code is not a full Plus Code, or nothing when it is one; short codes report `short`. */
-function plusCodeProblem(code: string): string | "short" | undefined {
-  const separator = code.indexOf("+");
+/**
+ * A `+` that's missing, doubled or in the wrong place.
+ *
+ * @param code - Upper case code.
+ * @param separator - Index of its first `+`.
+ * @returns {string | undefined} The problem, or nothing.
+ */
+function separatorProblem(code: string, separator: number): string | undefined {
   if (separator < 0 || separator !== code.lastIndexOf("+")) return "it needs exactly one +";
   if (separator > PLUS_SEPARATOR_POSITION || separator % 2 === 1) {
     return "the + sits after an even number of digits, eight at most";
   }
+  return undefined;
+}
+
+/**
+ * Zero padding that a padded code can't have.
+ *
+ * @param code - Upper case code.
+ * @param separator - Index of its `+`.
+ * @returns {string | undefined} The problem, or nothing.
+ */
+function paddingProblem(code: string, separator: number): string | undefined {
   const padding = code.indexOf("0");
-  if (padding >= 0) {
-    if (separator < PLUS_SEPARATOR_POSITION) return "a padded code has eight characters before +";
-    if (padding === 0 || padding % 2 === 1) return "padding starts after an even number of digits";
-    if (!/^0+$/.test(code.slice(padding, separator)) || code.length > separator + 1) {
-      return "nothing but zeros follows the first 0, and nothing follows the +";
-    }
+  if (padding < 0) return undefined;
+  if (separator < PLUS_SEPARATOR_POSITION) return "a padded code has eight characters before +";
+  if (padding === 0 || padding % 2 === 1) return "padding starts after an even number of digits";
+  if (!/^0+$/.test(code.slice(padding, separator)) || code.length > separator + 1) {
+    return "nothing but zeros follows the first 0, and nothing follows the +";
   }
+  return undefined;
+}
+
+/**
+ * Digits that are missing, lonely or outside the alphabet.
+ *
+ * @param code - Upper case code.
+ * @param separator - Index of its `+`.
+ * @returns {string | undefined} The problem, or nothing.
+ */
+function digitProblem(code: string, separator: number): string | undefined {
   if (code.length - separator - 1 === 1) return "a single digit after the + is not allowed";
   const digits = code.replace("+", "").replaceAll("0", "");
   if (digits.length === 0) return "it has no digits";
   for (const character of digits) {
     if (!PLUS_ALPHABET.includes(character)) return `"${character}" is not a Plus Code digit`;
   }
-  if (separator < PLUS_SEPARATOR_POSITION) return "short";
+  return undefined;
+}
+
+/**
+ * A full code whose first pair points off the globe.
+ *
+ * @param code - Upper case full code.
+ * @returns {string | undefined} The problem, or nothing.
+ */
+function rangeProblem(code: string): string | undefined {
   if (PLUS_ALPHABET.indexOf(code[0] as string) * 20 >= 180)
     return "the first digit puts it past 90°";
   if (PLUS_ALPHABET.indexOf(code[1] as string) * 20 >= 360)
@@ -273,6 +344,30 @@ function plusCodeProblem(code: string): string | "short" | undefined {
   return undefined;
 }
 
+/** Shape checks in the order a reader would hit them. */
+const PLUS_SHAPE_CHECKS = [separatorProblem, paddingProblem, digitProblem];
+
+/**
+ * Why a code is not a full Plus Code, or nothing when it is one; short codes report `short`.
+ *
+ * @param code - Upper case code.
+ * @returns {string | undefined} The problem, `short`, or nothing.
+ */
+function plusCodeProblem(code: string): string | undefined {
+  const separator = code.indexOf("+");
+  for (const check of PLUS_SHAPE_CHECKS) {
+    const problem = check(code, separator);
+    if (problem !== undefined) return problem;
+  }
+  return separator < PLUS_SEPARATOR_POSITION ? "short" : rangeProblem(code);
+}
+
+/**
+ * The cell a full Plus Code names.
+ *
+ * @param code - Upper case full code.
+ * @returns {GridCell & { length: number }} The cell and the digits read.
+ */
 function decodeFullPlusCode(code: string): GridCell & { length: number } {
   const digits = code.replace("+", "").replaceAll("0", "").slice(0, PLUS_MAX_LENGTH);
   let latitude = -90 * PLUS_PAIR_PRECISION;
@@ -317,6 +412,9 @@ function decodeFullPlusCode(code: string): GridCell & { length: number } {
  * The cell a Plus Code names. A short code (`9G8F+6W`) needs `reference`, a point near the place
  * it belongs to, the way Google Maps writes the town next to it.
  *
+ * @param code - The code, full or short.
+ * @param reference - A point near a short code's place.
+ * @returns {GridCell} Its box and middle.
  * @throws {InvalidInputError} When the code is malformed, or short without a reference.
  */
 export function decodePlusCode(code: string, reference?: GeoPoint): GridCell {
@@ -335,7 +433,13 @@ export function decodePlusCode(code: string, reference?: GeoPoint): GridCell {
   return { center, bounds };
 }
 
-/** The full code nearest to `reference` that ends with the short code, as `recoverNearest` does. */
+/**
+ * The full code nearest to `reference` that ends with the short code, as `recoverNearest` does.
+ *
+ * @param short - Upper case short code.
+ * @param reference - A point near its place.
+ * @returns {string} The full code.
+ */
 function recoverPlusCode(short: string, reference: GeoPoint): string {
   assertCoordinates(reference.latitude, reference.longitude);
   const padding = PLUS_SEPARATOR_POSITION - short.indexOf("+");
@@ -353,7 +457,12 @@ function recoverPlusCode(short: string, reference: GeoPoint): string {
   return encodePlusCode({ latitude, longitude: wrapLongitude(longitude) }, area.length);
 }
 
-/** True when the text reads as a Plus Code, full or short. */
+/**
+ * True when the text reads as a Plus Code, full or short.
+ *
+ * @param text - Candidate text.
+ * @returns {boolean} Whether it has the shape.
+ */
 export function isPlusCode(text: string): boolean {
   const problem = plusCodeProblem(text.trim().toUpperCase());
   return problem === undefined || problem === "short";

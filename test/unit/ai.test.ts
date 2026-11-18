@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { convertTool, geocodeAddressTool, geocodeTool, reverseTool } from "../../src/ai.ts";
 import { NETWORKED_CALLS, stubJSON, stubPendingFetch } from "../helpers.ts";
 
@@ -10,6 +10,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
+
+/* The message of the second provider in a comparison, the one without a key. */
+function deniedBy(output: unknown): string {
+  const { comparison } = output as { comparison: { error?: string }[] };
+  return comparison[1]?.error ?? "";
+}
 
 const AI_TOOLS: Record<string, { execute?: unknown }> = {
   maps_geocode: geocodeTool,
@@ -34,12 +40,10 @@ describe("Maps AI SDK tools", () => {
     stubJSON([place]);
 
     const trimmed = await tool.execute?.(input, callOptions);
-    expect(trimmed).toEqual({
-      provider: "openstreetmap",
-      locations: [trimmedPlace],
-      text: expect.stringContaining("52.23, 21.01  Warszawa, Polska"),
-    });
-    expect(trimmed?.text).not.toContain("osm_id");
+    const { text, ...details } = trimmed ?? { text: "" };
+    expect(details).toEqual({ provider: "openstreetmap", locations: [trimmedPlace] });
+    expect(text).toContain("52.23, 21.01  Warszawa, Polska");
+    expect(text).not.toContain("osm_id");
 
     const full = await tool.execute?.({ ...input, raw: true }, callOptions);
     expect(full).toMatchObject({ locations: [{ ...trimmedPlace, raw: place }] });
@@ -51,11 +55,9 @@ describe("Maps AI SDK tools", () => {
     const input = { latitude: 52.23, longitude: 21.01, provider: "openstreetmap" };
 
     const trimmed = await reverseTool.execute?.(input, callOptions);
-    expect(trimmed).toEqual({
-      provider: "openstreetmap",
-      location: trimmedPlace,
-      text: expect.stringContaining("Coordinates: 52.23, 21.01"),
-    });
+    const { text, ...details } = trimmed ?? { text: "" };
+    expect(details).toEqual({ provider: "openstreetmap", location: trimmedPlace });
+    expect(text).toContain("Coordinates: 52.23, 21.01");
 
     const full = await reverseTool.execute?.({ ...input, raw: true }, callOptions);
     expect(full).toMatchObject({ location: { ...trimmedPlace, raw: place } });
@@ -71,9 +73,10 @@ describe("Maps AI SDK tools", () => {
     expect(trimmed).toMatchObject({
       comparison: [
         { provider: "openstreetmap", result: [trimmedPlace] },
-        { provider: "googlemaps", error: expect.stringContaining("Authentication failed") },
+        { provider: "googlemaps" },
       ],
     });
+    expect(deniedBy(trimmed)).toContain("Authentication failed");
     expect(JSON.stringify(trimmed)).not.toContain("osm_id");
 
     const full = await geocodeTool.execute?.(
@@ -83,9 +86,10 @@ describe("Maps AI SDK tools", () => {
     expect(full).toMatchObject({
       comparison: [
         { provider: "openstreetmap", result: [{ raw: place }] },
-        { provider: "googlemaps", error: expect.stringContaining("Authentication failed") },
+        { provider: "googlemaps" },
       ],
     });
+    expect(deniedBy(full)).toContain("Authentication failed");
   });
 
   it("convert returns the conversion object", async () => {

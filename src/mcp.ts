@@ -13,7 +13,11 @@ const changed = import.meta.url.endsWith(".ts")
   ? sourceChangeCheck(import.meta.dirname, performance.timeOrigin)
   : undefined;
 
-/** An unconnected MCP server with the maps tools. From `src/`, it won't navigate by a redrawn map. */
+/**
+ * An unconnected MCP server with the maps tools. From `src/`, it won't navigate by a redrawn map.
+ *
+ * @returns {Server} The server, ready to connect.
+ */
 export function createMcpServer(): Server {
   const server = createToolServer(serverInfo, mapsTools);
   if (!changed) return server;

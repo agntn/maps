@@ -28,7 +28,12 @@ export interface GeoAddress {
   country?: string;
 }
 
-/** Collapse an address whose every field is absent onto `undefined`. */
+/**
+ * Collapse an address whose every field is absent onto `undefined`.
+ *
+ * @param address - Address parts to check.
+ * @returns {GeoAddress | undefined} The address, or nothing when it's empty.
+ */
 export function compactAddress(address: GeoAddress): GeoAddress | undefined {
   return Object.values(address).some((value) => value !== undefined) ? address : undefined;
 }
@@ -53,16 +58,28 @@ export interface GeoLocation {
   raw?: Record<string, unknown>;
 }
 
-/** Copy of a result without the provider's record; the JSON tools send that only on request. */
+/**
+ * Copy of a result without the provider's record; the JSON tools send that only on request.
+ *
+ * @param location - One result.
+ * @param keepRaw - Leave the record in.
+ * @returns {GeoLocation} The result to send.
+ */
 export function trimLocation(location: GeoLocation, keepRaw = false): GeoLocation {
   if (keepRaw) return location;
   const { raw: _raw, ...trimmed } = location;
   return trimmed;
 }
 
-/** `trimLocation` over a result list. */
-export function trimLocations(locations: GeoLocation[], keepRaw = false): GeoLocation[] {
-  return keepRaw ? locations : locations.map((location) => trimLocation(location));
+/**
+ * `trimLocation` over a result list.
+ *
+ * @param locations - The results.
+ * @param keepRaw - Leave the records in.
+ * @returns {GeoLocation[]} The results to send.
+ */
+export function trimLocations(locations: readonly GeoLocation[], keepRaw = false): GeoLocation[] {
+  return keepRaw ? [...locations] : locations.map((location) => trimLocation(location));
 }
 
 /**
@@ -139,6 +156,10 @@ export interface ProviderConfig {
  * Round a requested result limit and keep it inside the provider's range.
  *
  * A missing or zero limit uses `max`.
+ *
+ * @param limit - Requested count.
+ * @param max - The provider's ceiling.
+ * @returns {number} A whole number from 1 to `max`.
  */
 export function clampMaxResults(limit?: number, max = 10): number {
   if (!limit) return max;

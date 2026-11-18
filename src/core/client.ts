@@ -26,7 +26,13 @@ const MAX_TIMEOUT_MS = 2_147_483_647;
 /** Statuses whose response never carries a body. */
 const EMPTY_STATUS_CODES = new Set([101, 204, 205, 304]);
 
-/** JSON with the Maps headers and a 15 s deadline, parsed whatever the content type says. */
+/**
+ * JSON with the Maps headers and a 15 s deadline, parsed whatever the content type says.
+ *
+ * @param url - Address to fetch.
+ * @param options - Timeout, headers, signal and the provider to blame.
+ * @returns {Promise<T>} The parsed body.
+ */
 export async function getJSON<T>(url: string, options?: ClientOptions): Promise<T> {
   try {
     const response = await fetch(url, {
@@ -43,30 +49,45 @@ export async function getJSON<T>(url: string, options?: ClientOptions): Promise<
   }
 }
 
-/** Default headers, each replaced by a caller header of the same name in any letter case. */
-function requestHeaders(overrides?: Record<string, string>): Headers {
+/**
+ * Default headers, each replaced by a caller header of the same name in any letter case.
+ *
+ * @param overrides - The caller's headers.
+ * @returns {Headers} The headers to send.
+ */
+function requestHeaders(overrides?: Readonly<Record<string, string>>): Headers {
   const headers = new Headers({ Accept: "application/json", "User-Agent": USER_AGENT });
   for (const [name, value] of Object.entries(overrides ?? {})) headers.set(name, value);
   return headers;
 }
 
-/** The caller's signal joined with the deadline. A bad timeout fails here, not 1 ms in flight. */
-function requestSignal(options?: ClientOptions): AbortSignal | undefined {
-  const requested = options?.timeout ?? DEFAULT_TIMEOUT_MS;
+/**
+ * The caller's signal joined with the deadline. A bad timeout fails here, not 1 ms in flight.
+ *
+ * @param options - Timeout and signal of the request.
+ * @returns {AbortSignal | undefined} One signal for both, or nothing to wait on.
+ */
+function requestSignal(options: ClientOptions = {}): AbortSignal | undefined {
+  const requested = options.timeout ?? DEFAULT_TIMEOUT_MS;
   if (!(requested >= 0 && requested <= MAX_TIMEOUT_MS)) {
     throw new InvalidInputError(
-      `timeout must be between 0 and ${MAX_TIMEOUT_MS} ms, got ${options?.timeout}`,
-      options?.provider,
+      `timeout must be between 0 and ${MAX_TIMEOUT_MS} ms, got ${options.timeout}`,
+      options.provider,
     );
   }
   const timeout = Math.ceil(requested);
-  const signals = [options?.signal, timeout > 0 ? AbortSignal.timeout(timeout) : undefined].filter(
+  const signals = [options.signal, timeout > 0 ? AbortSignal.timeout(timeout) : undefined].filter(
     (signal) => signal !== undefined,
   );
   return signals.length > 1 ? AbortSignal.any(signals) : signals[0];
 }
 
-/** JSON when it parses, the raw text when it doesn't, nothing for a bodiless status. */
+/**
+ * JSON when it parses, the raw text when it doesn't, nothing for a bodiless status.
+ *
+ * @param response - The answer to read.
+ * @returns {Promise<unknown>} The body.
+ */
 async function readJSON(response: Response): Promise<unknown> {
   if (!response.body || EMPTY_STATUS_CODES.has(response.status)) return undefined;
   const text = await response.text();
@@ -89,8 +110,11 @@ async function readJSON(response: Response): Promise<unknown> {
  *   ```ts
  *   buildQuery({ limit: 2, language: undefined }); // '?limit=2'
  *   ```
+ *
+ * @param params - Query parameters by name.
+ * @returns {string} The query with its `?`, or an empty string.
  */
-export function buildQuery(params: Record<string, string | number | undefined>): string {
+export function buildQuery(params: Readonly<Record<string, string | number | undefined>>): string {
   const usp = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) usp.set(key, String(value));

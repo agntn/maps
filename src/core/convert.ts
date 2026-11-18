@@ -28,11 +28,19 @@ import {
   isWhat3words,
   squareToWhat3words,
   what3wordsToSquare,
+  type What3wordsOptions,
 } from "./what3words.ts";
 
 /** Longest input read; every coordinate format fits with room to spare, and errors echo it. */
 const MAX_INPUT_LENGTH = 256;
 
+/**
+ * The input trimmed, once it's neither empty nor absurdly long.
+ *
+ * @param input - Coordinates as given.
+ * @returns {string} The text to read.
+ * @throws {InvalidInputError} When there's nothing to read, or too much.
+ */
 function readInput(input: string): string {
   const text = input.trim();
   if (!text) throw new InvalidInputError("Nothing to convert: the input is empty");
@@ -65,7 +73,13 @@ const PRECISIONS: Record<LocalCoordinateFormat, readonly number[]> = {
   mgrs: [5, 0, 1, 2, 3, 4],
 };
 
-/** Throws unless `value` is a precision `format` supports; caller mistakes never become skips. */
+/**
+ * Throws unless `value` is a precision `format` supports; caller mistakes never become skips.
+ *
+ * @param format - A local format.
+ * @param value - Requested precision.
+ * @throws {InvalidInputError} When the format has no such precision.
+ */
 function assertPrecision(format: LocalCoordinateFormat, value: number): void {
   const allowed = PRECISIONS[format];
   if (!allowed.includes(value)) {
@@ -109,7 +123,12 @@ export interface CoordinateConversion extends DecodedCoordinates {
   skipped?: Partial<Record<CoordinateFormat, string>>;
 }
 
-/** Throws unless `value` names a format. */
+/**
+ * Throws unless `value` names a format.
+ *
+ * @param value - Candidate format name.
+ * @throws {InvalidInputError} When no format has that name.
+ */
 export function assertCoordinateFormat(value: string): asserts value is CoordinateFormat {
   if (!(COORDINATE_FORMATS as readonly string[]).includes(value)) {
     throw new InvalidInputError(
@@ -118,7 +137,12 @@ export function assertCoordinateFormat(value: string): asserts value is Coordina
   }
 }
 
-/** Formats the text could be in. Only lower case reads as a geohash, so `JN58td` is a locator. */
+/**
+ * Formats the text could be in. Only lower case reads as a geohash, so `JN58td` is a locator.
+ *
+ * @param input - Coordinates as given.
+ * @returns {CoordinateFormat[]} Every format that fits, or none.
+ */
 export function detectCoordinateFormats(input: string): CoordinateFormat[] {
   const text = readInput(input);
   const found: CoordinateFormat[] = [];
@@ -137,6 +161,13 @@ export function detectCoordinateFormats(input: string): CoordinateFormat[] {
   }
 }
 
+/**
+ * The one format a text is in.
+ *
+ * @param input - Trimmed coordinates.
+ * @returns {CoordinateFormat} The format.
+ * @throws {InvalidInputError} When no format fits, or more than one does.
+ */
 function pickFormat(input: string): CoordinateFormat {
   const formats = detectCoordinateFormats(input);
   if (formats.length === 1) return formats[0] as CoordinateFormat;
@@ -153,66 +184,111 @@ function pickFormat(input: string): CoordinateFormat {
 }
 
 /**
+ * Read a pair of angles, and hold it to the notation the caller named.
+ *
+ * @param text - Trimmed coordinates.
+ * @param from - Notation the caller expects.
+ * @returns {DecodedCoordinates} The point in the notation it was written in.
+ * @throws {InvalidInputError} When the text is written another way than `from`.
+ */
+function decodeDegrees(text: string, from?: CoordinateFormat): DecodedCoordinates {
+  const { point, notation } = parseDegrees(text);
+  if (from && notation !== from) {
+    throw new InvalidInputError(`"${text}" is written as ${notation}, not ${from}`);
+  }
+  return { format: notation, center: point, canonical: encodeCoordinates(point, notation) };
+}
+
+/**
+ * An MGRS reference spaced the canonical way, `34U EC 0083 8658`.
+ *
+ * @param text - A valid reference, spaced any way.
+ * @returns {string} Zone and band, square, easting, northing.
+ */
+function canonicalMgrs(text: string): string {
+  const compact = text.replaceAll(/\s+/g, "").toUpperCase();
+  const digits = compact.replace(/^\d{1,2}[A-Z]{3}/, "");
+  const half = digits.length / 2;
+  const head = compact.slice(0, compact.length - digits.length);
+  return [
+    head.slice(0, -2).replace(/^0/, ""),
+    head.slice(-2),
+    digits.slice(0, half),
+    digits.slice(half),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** What `decodeCoordinates` takes besides the text. */
+type DecodeOptions = Readonly<{ from?: CoordinateFormat; reference?: GeoPoint }>;
+
+/** One reader per local format. */
+const DECODERS: Record<
+  LocalCoordinateFormat,
+  (text: string, options: DecodeOptions) => DecodedCoordinates
+> = {
+  decimal: (text, options) => decodeDegrees(text, options.from),
+  dms: (text, options) => decodeDegrees(text, options.from),
+  ddm: (text, options) => decodeDegrees(text, options.from),
+  geohash: (text) => ({ format: "geohash", ...decodeGeohash(text), canonical: text.toLowerCase() }),
+  maidenhead: (text) => ({
+    format: "maidenhead",
+    ...decodeMaidenhead(text),
+    canonical: text.slice(0, 4).toUpperCase() + text.slice(4).toLowerCase(),
+  }),
+  pluscode: (text, options) => ({
+    format: "pluscode",
+    ...decodePlusCode(text, options.reference),
+    canonical: text.toUpperCase(),
+  }),
+  utm: (text) => {
+    const position = parseUtm(text);
+    return { format: "utm", center: fromUtm(position), canonical: formatUtm(position) };
+  },
+  mgrs: (text) => ({ format: "mgrs", ...decodeMgrs(text), canonical: canonicalMgrs(text) }),
+};
+
+/**
  * Read a coordinate in any local format. The format is detected when omitted.
  *
+ * @param input - Coordinates as given.
+ * @param options - The format to read it as, and a reference for a short Plus Code.
+ * @returns {DecodedCoordinates} The point, its cell and its canonical form.
  * @throws {InvalidInputError} When the text does not parse, is ambiguous, or is three words
  *   (those need `convertCoordinates` and a key).
  */
-export function decodeCoordinates(
-  input: string,
-  options?: { from?: CoordinateFormat; reference?: GeoPoint },
-): DecodedCoordinates {
+export function decodeCoordinates(input: string, options?: DecodeOptions): DecodedCoordinates {
   const text = readInput(input);
   const format = options?.from ?? pickFormat(text);
   assertCoordinateFormat(format);
-  switch (format) {
-    case "decimal":
-    case "dms":
-    case "ddm": {
-      const { point, notation } = parseDegrees(text);
-      if (options?.from && notation !== format) {
-        throw new InvalidInputError(`"${text}" is written as ${notation}, not ${format}`);
-      }
-      return { format: notation, center: point, canonical: encodeCoordinates(point, notation) };
-    }
-    case "geohash":
-      return { format, ...decodeGeohash(text), canonical: text.toLowerCase() };
-    case "maidenhead": {
-      const upper = text.slice(0, 4).toUpperCase() + text.slice(4).toLowerCase();
-      return { format, ...decodeMaidenhead(text), canonical: upper };
-    }
-    case "pluscode":
-      return { format, ...decodePlusCode(text, options?.reference), canonical: text.toUpperCase() };
-    case "utm": {
-      const position = parseUtm(text);
-      return { format, center: fromUtm(position), canonical: formatUtm(position) };
-    }
-    case "mgrs": {
-      const decoded = decodeMgrs(text);
-      const compact = text.replaceAll(/\s+/g, "").toUpperCase();
-      const digits = compact.replace(/^\d{1,2}[A-Z]{3}/, "");
-      const half = digits.length / 2;
-      const head = compact.slice(0, compact.length - digits.length);
-      const canonical = [
-        head.slice(0, -2).replace(/^0/, ""),
-        head.slice(-2),
-        digits.slice(0, half),
-        digits.slice(half),
-      ]
-        .filter(Boolean)
-        .join(" ");
-      return { format, ...decoded, canonical };
-    }
-    case "what3words":
-      throw new InvalidInputError(
-        "Three word addresses need the what3words API; use convertCoordinates with a key",
-      );
+  if (format === "what3words") {
+    throw new InvalidInputError(
+      "Three word addresses need the what3words API; use convertCoordinates with a key",
+    );
   }
+  return DECODERS[format](text, options ?? {});
 }
+
+/** One writer per local format. */
+const ENCODERS: Record<LocalCoordinateFormat, (point: GeoPoint, precision: number) => string> = {
+  decimal: formatDecimal,
+  dms: formatDms,
+  ddm: formatDdm,
+  geohash: encodeGeohash,
+  maidenhead: encodeMaidenhead,
+  pluscode: encodePlusCode,
+  utm: (point, precision) => formatUtm(toUtm(point), precision),
+  mgrs: encodeMgrs,
+};
 
 /**
  * Write a point in one local format at the given precision (see `CoordinatePrecision`).
  *
+ * @param point - The point to write.
+ * @param format - A local format.
+ * @param precision - Precision in the format's own unit.
+ * @returns {string} The point in that format.
  * @throws {InvalidInputError} When the point is out of range for the format or the precision is
  *   not one it supports.
  */
@@ -230,25 +306,95 @@ export function encodeCoordinates(
   assertCoordinates(point.latitude, point.longitude);
   const value = precision ?? (PRECISIONS[format][0] as number);
   assertPrecision(format, value);
-  switch (format) {
-    case "decimal":
-      return formatDecimal(point, value);
-    case "dms":
-      return formatDms(point, value);
-    case "ddm":
-      return formatDdm(point, value);
-    case "geohash":
-      return encodeGeohash(point, value);
-    case "maidenhead":
-      return encodeMaidenhead(point, value);
-    case "pluscode":
-      return encodePlusCode(point, value);
-    case "utm":
-      return formatUtm(toUtm(point), value);
-    case "mgrs":
-      return encodeMgrs(point, value);
-    default:
-      throw new InvalidInputError(`${format as string} is not a local coordinate format`);
+  return ENCODERS[format](point, value);
+}
+
+/**
+ * Refuse a target format or a precision the library doesn't have, before anything is decoded.
+ *
+ * @param options - The conversion request.
+ * @throws {InvalidInputError} When a format is unknown or a precision doesn't fit its format.
+ */
+function checkTargets(options: ConvertOptions): void {
+  for (const format of options.to ?? []) assertCoordinateFormat(format);
+  for (const [format, value] of Object.entries(options.precision ?? {})) {
+    assertCoordinateFormat(format);
+    if (format === "what3words") throw new InvalidInputError("what3words has no precision");
+    if (value !== undefined) assertPrecision(format, value);
+  }
+}
+
+/**
+ * The what3words options a conversion carries.
+ *
+ * @param options - The conversion request.
+ * @returns {What3wordsOptions} Key, language and signal.
+ */
+function keyOptions(options: ConvertOptions): What3wordsOptions {
+  return { apiKey: options.what3wordsKey, language: options.language, signal: options.signal };
+}
+
+/**
+ * Decode the input, over the network when it's three words.
+ *
+ * @param text - Trimmed coordinates.
+ * @param options - The conversion request, its `from` already settled.
+ * @returns {Promise<DecodedCoordinates>} The point, its cell and its canonical form.
+ */
+async function decodeAny(text: string, options: ConvertOptions): Promise<DecodedCoordinates> {
+  if (options.from !== "what3words") {
+    return decodeCoordinates(text, { from: options.from, reference: options.reference });
+  }
+  const square = await what3wordsToSquare(text, keyOptions(options));
+  return {
+    format: options.from,
+    center: square.center,
+    bounds: square.bounds,
+    canonical: square.words,
+  };
+}
+
+/** One conversion past decoding: what was read, what was asked, whether `to` named the formats. */
+interface Job {
+  readonly decoded: DecodedCoordinates;
+  readonly options: ConvertOptions;
+  readonly explicit: boolean;
+}
+
+/**
+ * Write the decoded point in one format. The input's own format echoes its canonical form.
+ *
+ * @param job - The conversion in flight.
+ * @param format - Format to write.
+ * @returns {Promise<string>} The point in that format.
+ */
+async function writeTarget(job: Job, format: CoordinateFormat): Promise<string> {
+  const { decoded, options } = job;
+  const precision = format === "what3words" ? undefined : options.precision?.[format];
+  if (format === decoded.format && precision === undefined) return decoded.canonical;
+  return format === "what3words"
+    ? (await squareToWhat3words(decoded.center, keyOptions(options))).words
+    : encodeCoordinates(decoded.center, format, precision);
+}
+
+/**
+ * Write one format, or say why it was left out of an unfiltered conversion.
+ *
+ * @param job - The conversion in flight.
+ * @param format - Format to write.
+ * @returns {Promise<readonly ["formats" | "skipped", string]>} The bucket and its text.
+ */
+async function tryTarget(
+  job: Job,
+  format: CoordinateFormat,
+): Promise<readonly ["formats" | "skipped", string]> {
+  try {
+    return ["formats", await writeTarget(job, format)];
+  } catch (error) {
+    const optional =
+      format === "what3words" ? !job.options.signal?.aborted : error instanceof InvalidInputError;
+    if (job.explicit || !optional) throw error;
+    return ["skipped", error instanceof Error ? error.message : String(error)];
   }
 }
 
@@ -262,6 +408,9 @@ export function encodeCoordinates(
  *   result.formats; // { decimal: "42.604980, -5.603027", maidenhead: "IN72eo" }
  *   ```
  *
+ * @param input - Coordinates as given.
+ * @param options - Formats, precision, reference and what3words settings.
+ * @returns {Promise<CoordinateConversion>} The input decoded and written out.
  * @throws {InvalidInputError} When the input does not parse, is ambiguous, or the requested
  *   precision does not fit a format.
  * @throws {AuthError} When what3words is involved and no key is set.
@@ -271,63 +420,30 @@ export async function convertCoordinates(
   options: ConvertOptions = {},
 ): Promise<CoordinateConversion> {
   const text = readInput(input);
-  const what3words = {
-    apiKey: options.what3wordsKey,
-    language: options.language,
-    signal: options.signal,
-  };
   const from = options.from ?? pickFormat(text);
   assertCoordinateFormat(from);
-  for (const format of options.to ?? []) assertCoordinateFormat(format);
-  for (const [format, value] of Object.entries(options.precision ?? {})) {
-    assertCoordinateFormat(format);
-    if (format === "what3words") throw new InvalidInputError("what3words has no precision");
-    if (value !== undefined) assertPrecision(format, value);
-  }
-
-  let decoded: DecodedCoordinates;
-  if (from === "what3words") {
-    const square = await what3wordsToSquare(text, what3words);
-    decoded = {
-      format: from,
-      center: square.center,
-      bounds: square.bounds,
-      canonical: square.words,
-    };
-  } else {
-    decoded = decodeCoordinates(text, { from, reference: options.reference });
-  }
+  checkTargets(options);
+  const decoded = await decodeAny(text, { ...options, from });
 
   const explicit = options.to !== undefined;
   const targets: CoordinateFormat[] = explicit
     ? [...new Set(options.to)]
     : COORDINATE_FORMATS.filter(
-        (format) => format !== "what3words" || hasWhat3wordsKey(what3words),
+        (format) => format !== "what3words" || hasWhat3wordsKey(keyOptions(options)),
       );
-  const formats: Partial<Record<CoordinateFormat, string>> = {};
-  const skipped: Partial<Record<CoordinateFormat, string>> = {};
+  const written: Record<"formats" | "skipped", Partial<Record<CoordinateFormat, string>>> = {
+    formats: {},
+    skipped: {},
+  };
+  const job = { decoded, options, explicit };
   for (const format of targets) {
-    const precision = format === "what3words" ? undefined : options.precision?.[format];
-    if (format === decoded.format && precision === undefined) {
-      formats[format] = decoded.canonical;
-      continue;
-    }
-    try {
-      formats[format] =
-        format === "what3words"
-          ? (await squareToWhat3words(decoded.center, what3words)).words
-          : encodeCoordinates(decoded.center, format, precision);
-    } catch (error) {
-      const optional =
-        format === "what3words" ? !options.signal?.aborted : error instanceof InvalidInputError;
-      if (explicit || !optional) throw error;
-      skipped[format] = error instanceof Error ? error.message : String(error);
-    }
+    const [bucket, output] = await tryTarget(job, format);
+    written[bucket][format] = output;
   }
   return {
     input: text,
     ...decoded,
-    formats,
-    ...(Object.keys(skipped).length > 0 ? { skipped } : {}),
+    formats: written.formats,
+    ...(Object.keys(written.skipped).length > 0 ? { skipped: written.skipped } : {}),
   };
 }

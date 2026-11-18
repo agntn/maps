@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { InvalidInputError, NotFoundError } from "../../src/core/errors.ts";
 import { create } from "../../src/core/registry.ts";
-import { stubJSON } from "../helpers.ts";
+import { requestedUrl, stubJSON } from "../helpers.ts";
 import "../../src/providers/openstreetmap.ts";
 
 /** Live Nominatim jsonv2 sample captured during the pre-scaffold API audit (2026-08-24). */
@@ -51,7 +51,7 @@ describe("openstreetmap provider", () => {
       postcode: "00-120",
     });
 
-    const url = String(fetch.mock.calls[0]?.[0]);
+    const url = requestedUrl(fetch);
     expect(url).toContain("street=44+Z%C5%82ota");
     expect(url).toContain("city=Warszawa");
     expect(url).toContain("postalcode=00-120");
@@ -105,7 +105,7 @@ describe("openstreetmap provider", () => {
       countryCodes: ["PL", "de"],
     });
 
-    const url = String(fetch.mock.calls[0]?.[0]);
+    const url = requestedUrl(fetch);
     expect(url).toContain("/search?");
     expect(url).toContain("format=jsonv2");
     expect(url).toContain("limit=3");
@@ -121,21 +121,18 @@ describe("openstreetmap provider", () => {
     await provider.geocodeAddress({ city: "Warszawa" }, { layers: ["address"] });
     await provider.geocode("Supreme Court", { layers: [] });
 
-    expect(String(fetch.mock.calls[0]?.[0])).toContain("layer=poi%2Cnatural");
-    expect(String(fetch.mock.calls[1]?.[0])).toContain("layer=address");
-    expect(String(fetch.mock.calls[2]?.[0])).not.toContain("layer=");
+    expect(requestedUrl(fetch)).toContain("layer=poi%2Cnatural");
+    expect(requestedUrl(fetch, 1)).toContain("layer=address");
+    expect(requestedUrl(fetch, 2)).not.toContain("layer=");
   });
 
   it("rejects an unknown layer without any request", async () => {
     const fetch = stubJSON([]);
     const provider = create("openstreetmap");
 
-    await expect(
-      provider.geocode("Supreme Court", { layers: ["poi", "railway" as never] }),
-    ).rejects.toMatchObject({
-      name: "InvalidInputError",
-      message: expect.stringContaining("railway"),
-    });
+    const refused = provider.geocode("Supreme Court", { layers: ["poi", "railway" as never] });
+    await expect(refused).rejects.toBeInstanceOf(InvalidInputError);
+    await expect(refused).rejects.toThrow("railway");
     await expect(
       provider.geocodeAddress({ city: "Warszawa" }, { layers: ["railway" as never] }),
     ).rejects.toBeInstanceOf(InvalidInputError);
@@ -147,7 +144,7 @@ describe("openstreetmap provider", () => {
 
     await create("openstreetmap").geocode("Warszawa", { limit: 500 });
 
-    expect(String(fetch.mock.calls[0]?.[0])).toContain("limit=40");
+    expect(requestedUrl(fetch)).toContain("limit=40");
   });
 
   it("rejects an empty query without any request", async () => {
@@ -186,7 +183,7 @@ describe("openstreetmap provider", () => {
 
     await create("openstreetmap").reverse(52.2318, 21.0067, { granularity: "city" });
 
-    expect(String(fetch.mock.calls[0]?.[0])).toContain("zoom=10");
+    expect(requestedUrl(fetch)).toContain("zoom=10");
   });
 
   it("turns the in-body reverse error into NotFoundError", async () => {

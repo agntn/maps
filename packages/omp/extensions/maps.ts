@@ -12,7 +12,11 @@ const PREVIEW_LENGTH = 80;
 
 const sourceModulePath = fileURLToPath(new URL("../../../src/tools.ts", import.meta.url));
 
-/** Source in a checkout, build in the package; compiled OMP resolves only literal specifiers. */
+/**
+ * Source in a checkout, build in the package; compiled OMP resolves only literal specifiers.
+ *
+ * @returns {Promise<typeof MapsTools>} The tools module.
+ */
 function loadTools(): Promise<typeof MapsTools> {
   return (
     existsSync(sourceModulePath)
@@ -23,7 +27,7 @@ function loadTools(): Promise<typeof MapsTools> {
 
 type Args = Readonly<Record<string, unknown>>;
 
-function preview(...parts: unknown[]): string {
+function preview(...parts: readonly unknown[]): string {
   return parts
     .filter((part) => part !== undefined && part !== "")
     .map(String)
@@ -48,7 +52,11 @@ const describeCall: Record<string, (args: Args) => string> = {
   maps_convert: (args) => preview(args["input"]),
 };
 
-/** Register the maps tools with the OMP host; the library loads on the first call. */
+/**
+ * Register the maps tools with the OMP host; the library loads on the first call.
+ *
+ * @param pi - The OMP extension API.
+ */
 export default async function mapsExtension(pi: ExtensionAPI): Promise<void> {
   pi.setLabel("Maps");
   const { mapsTools } = await loadTools();

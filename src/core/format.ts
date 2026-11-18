@@ -13,24 +13,45 @@ export interface LocationTextOptions {
 
 const ADDRESS_FIELDS = ["houseNumber", "road", "city", "state", "postcode", "country"] as const;
 
-/** One-line label for a location in a list: coordinates plus its display name. */
+/**
+ * One-line label for a location in a list: coordinates plus its display name.
+ *
+ * @param location - One result.
+ * @returns {string} The line.
+ */
 export function formatLocationLine(location: GeoLocation): string {
   const name = location.displayName ?? "(unnamed)";
   return `${location.latitude}, ${location.longitude}  ${name}`;
 }
 
-/** Address parts under their `GeoAddress` names, so `houseNumber 44, road Złota` maps back. */
+/**
+ * Address parts under their `GeoAddress` names, so `houseNumber 44, road Złota` maps back.
+ *
+ * @param address - Address parts.
+ * @returns {string} The parts, comma apart.
+ */
 function formatAddressFields(address: GeoAddress): string {
   return ADDRESS_FIELDS.flatMap((field) =>
     address[field] === undefined ? [] : [`${field} ${address[field]}`],
   ).join(", ");
 }
 
+/**
+ * A box as two ranges.
+ *
+ * @param box - The bounds.
+ * @returns {string} Latitude range, then longitude range.
+ */
 function formatBounds(box: BoundingBox): string {
   return `${box.south}..${box.north} lat, ${box.west}..${box.east} lon`;
 }
 
-/** What a list line leaves out: category, country, address parts and bounds, `; ` apart. */
+/**
+ * What a list line leaves out: category, country, address parts and bounds, `; ` apart.
+ *
+ * @param location - One result.
+ * @returns {string} The facts, or an empty string.
+ */
 function formatLocationFacts(location: GeoLocation): string {
   return [
     location.category ? `category ${location.category}` : null,
@@ -42,7 +63,14 @@ function formatLocationFacts(location: GeoLocation): string {
     .join("; ");
 }
 
-/** Multi-line description of a single location. */
+/**
+ * Multi-line description of a single location.
+ *
+ * @param providerName - Provider that answered.
+ * @param location - One result.
+ * @param options - Whether to print the raw record.
+ * @returns {string} The text.
+ */
 export function formatLocation(
   providerName: string,
   location: GeoLocation,
@@ -62,11 +90,19 @@ export function formatLocation(
     .join("\n");
 }
 
-/** Multi-line listing of geocoding matches for a query, the facts of each indented below it. */
+/**
+ * Multi-line listing of geocoding matches for a query, the facts of each indented below it.
+ *
+ * @param providerName - Provider that answered.
+ * @param query - What was asked.
+ * @param locations - The matches.
+ * @param options - Whether to print the raw record.
+ * @returns {string} The text.
+ */
 export function formatLocations(
   providerName: string,
   query: string,
-  locations: GeoLocation[],
+  locations: readonly GeoLocation[],
   options: LocationTextOptions = {},
 ): string {
   if (locations.length === 0) return `[${providerName}] No matches for "${query}"`;
@@ -81,7 +117,12 @@ export function formatLocations(
   return `[${providerName}] ${locations.length} matches for "${query}":\n${lines.join("\n")}`;
 }
 
-/** One-line label for a structured address, used where a query string would appear. */
+/**
+ * One-line label for a structured address, used where a query string would appear.
+ *
+ * @param address - Address parts.
+ * @returns {string} The label.
+ */
 export function formatAddressLabel(address: GeoAddress): string {
   return [
     address.houseNumber,
@@ -95,10 +136,17 @@ export function formatAddressLabel(address: GeoAddress): string {
     .join(", ");
 }
 
-/** Side-by-side geocoding results from every registered provider, failures included. */
+/**
+ * Side-by-side geocoding results from every registered provider, failures included.
+ *
+ * @param query - What was asked.
+ * @param outcomes - What each provider answered.
+ * @param options - Whether to print the raw record.
+ * @returns {string} The text.
+ */
 export function formatGeocodeAll(
   query: string,
-  outcomes: ProviderOutcome<GeoLocation[]>[],
+  outcomes: readonly ProviderOutcome<GeoLocation[]>[],
   options: LocationTextOptions = {},
 ): string {
   return outcomes
@@ -110,9 +158,15 @@ export function formatGeocodeAll(
     .join("\n\n");
 }
 
-/** Side-by-side reverse-geocoding results from every registered provider, failures included. */
+/**
+ * Side-by-side reverse-geocoding results from every registered provider, failures included.
+ *
+ * @param outcomes - What each provider answered.
+ * @param options - Whether to print the raw record.
+ * @returns {string} The text.
+ */
 export function formatReverseAll(
-  outcomes: ProviderOutcome<GeoLocation>[],
+  outcomes: readonly ProviderOutcome<GeoLocation>[],
   options: LocationTextOptions = {},
 ): string {
   return outcomes
@@ -124,7 +178,12 @@ export function formatReverseAll(
     .join("\n\n");
 }
 
-/** Human-readable distance: meters below one kilometer, kilometers with exact meters above. */
+/**
+ * Human-readable distance: meters below one kilometer, kilometers with exact meters above.
+ *
+ * @param meters - The distance.
+ * @returns {string} The text.
+ */
 export function formatDistance(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)} m`;
   return `${(meters / 1000).toFixed(2)} km (${Math.round(meters)} m)`;
@@ -136,7 +195,14 @@ export interface DistanceTextOptions {
   path?: DistancePath;
 }
 
-/** Distance plus bearing, the shape the text surfaces print for one measurement. */
+/**
+ * Distance plus bearing, the shape the text surfaces print for one measurement.
+ *
+ * @param meters - The distance.
+ * @param bearing - Degrees clockwise from north.
+ * @param options - The line it was measured along.
+ * @returns {string} The text.
+ */
 export function formatDistanceBearing(
   meters: number,
   bearing: number,
@@ -148,8 +214,13 @@ export function formatDistanceBearing(
     : `Distance: ${formatDistance(meters)}\nBearing: ${rounded}°`;
 }
 
-/** Multi-line listing of registered providers and what each can serve. */
-export function formatProviders(listings: ProviderListing[]): string {
+/**
+ * Multi-line listing of registered providers and what each can serve.
+ *
+ * @param listings - Rows from `listProviders`.
+ * @returns {string} The text.
+ */
+export function formatProviders(listings: readonly ProviderListing[]): string {
   const lines = listings.map((listing) => {
     if (listing.requiresConfiguration) {
       return `  ${listing.name}: (requires API key - set env var to activate)`;
@@ -164,7 +235,12 @@ export function formatProviders(listings: ProviderListing[]): string {
   return `Registered providers (${listings.length}):\n${lines.join("\n")}`;
 }
 
-/** A conversion as text: what the input was read as, its cell, then one line per format. */
+/**
+ * A conversion as text: what the input was read as, its cell, then one line per format.
+ *
+ * @param conversion - A finished conversion.
+ * @returns {string} The text.
+ */
 export function formatConversion(conversion: CoordinateConversion): string {
   const { center, bounds } = conversion;
   const names = [...Object.keys(conversion.formats), ...Object.keys(conversion.skipped ?? {})];
