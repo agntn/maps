@@ -12,6 +12,9 @@ const ENV_MAP: Record<string, string> = {
 /**
  * Check for the reserved "all" provider value, which fans a request out to every registered
  * provider instead of selecting one. Surfaces test this before calling `selectProvider`.
+ *
+ * @param preferred - The provider argument as given.
+ * @returns {boolean} Whether it asks for every provider.
  */
 export function isAllProviders(preferred?: string): boolean {
   return preferred?.trim().toLowerCase() === "all";
@@ -23,6 +26,8 @@ export function isAllProviders(preferred?: string): boolean {
  * An explicit preference wins. Without one, a provider with configured credentials is selected
  * first, followed by OpenStreetMap, whose public Nominatim instance answers without a key.
  *
+ * @param preferred - Registry key the caller asked for.
+ * @returns {string} The registry key to use.
  * @throws {UnknownProviderError} When an explicit preference is not registered.
  */
 export function resolveProvider(preferred?: string): string {
@@ -54,6 +59,10 @@ export interface SelectedProvider {
  * This is the single selection path shared by the CLI, MCP server, AI tools, and both agent
  * extensions. Empty or whitespace-only arguments count as absent, so a client that sends `""`
  * gets the same behavior as one that omits the field. A `signal` cancels the provider's requests.
+ *
+ * @param preferred - The provider argument as given.
+ * @param signal - Cancels the provider's requests.
+ * @returns {SelectedProvider} The provider and its registry key.
  */
 export function selectProvider(preferred?: string, signal?: AbortSignal): SelectedProvider {
   const preferredName = preferred?.trim() || undefined;

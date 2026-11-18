@@ -4,7 +4,7 @@ import type {
   ExtensionToolContext,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import mapsExtension from "../../packages/pi/extensions/maps.ts";
 import { mapsTools } from "../../src/tools.ts";
 import { NETWORKED_CALLS, requireTool, stubJSON, stubPendingFetch } from "../helpers.ts";
@@ -21,7 +21,8 @@ async function registerExtensionTools(): Promise<Map<string, ToolDefinition>> {
     {
       get(target, key, receiver) {
         if (typeof key === "symbol" || key === "then" || Reflect.has(target, key)) {
-          return Reflect.get(target, key, receiver);
+          const member: unknown = Reflect.get(target, key, receiver);
+          return member;
         }
         throw new Error(`ExtensionAPI.${String(key)} is not stubbed`);
       },
@@ -136,12 +137,9 @@ describe("maps Pi extension", () => {
     expect(result.content).toEqual([
       { type: "text", text: "Distance: 111.20 km (111195 m)\nBearing: 90°" },
     ]);
-    expect(result.details).toEqual({
-      meters: expect.closeTo(111195.08, 1),
-      formatted: "111.20 km (111195 m)",
-      bearing: 90,
-      path: "great-circle",
-    });
+    const { meters, ...rest } = result.details as { meters: number };
+    expect(meters).toBeCloseTo(111195.08, 1);
+    expect(rest).toEqual({ formatted: "111.20 km (111195 m)", bearing: 90, path: "great-circle" });
   });
 
   it("measures along a rhumb line and says so in the details", async () => {
@@ -154,12 +152,9 @@ describe("maps Pi extension", () => {
     expect(result.content).toEqual([
       { type: "text", text: "Rhumb distance: 8197.71 km (8197711 m)\nRhumb bearing: 90°" },
     ]);
-    expect(result.details).toEqual({
-      meters: expect.closeTo(8197710.956, 2),
-      formatted: "8197.71 km (8197711 m)",
-      bearing: 90,
-      path: "rhumb",
-    });
+    const { meters, ...rest } = result.details as { meters: number };
+    expect(meters).toBeCloseTo(8197710.956, 2);
+    expect(rest).toEqual({ formatted: "8197.71 km (8197711 m)", bearing: 90, path: "rhumb" });
   });
 
   it("converts coordinates to text without network access", async () => {

@@ -35,32 +35,38 @@ const GRANULARITY_ZOOM = {
 } as const;
 
 interface NominatimAddress {
-  house_number?: string;
-  road?: string;
-  city?: string;
-  town?: string;
-  village?: string;
-  hamlet?: string;
-  municipality?: string;
-  state?: string;
-  postcode?: string;
-  country?: string;
-  country_code?: string;
+  readonly house_number?: string;
+  readonly road?: string;
+  readonly city?: string;
+  readonly town?: string;
+  readonly village?: string;
+  readonly hamlet?: string;
+  readonly municipality?: string;
+  readonly state?: string;
+  readonly postcode?: string;
+  readonly country?: string;
+  readonly country_code?: string;
 }
 
 interface NominatimPlace {
-  lat?: string;
-  lon?: string;
-  display_name?: string;
-  category?: string;
-  type?: string;
+  readonly lat?: string;
+  readonly lon?: string;
+  readonly display_name?: string;
+  readonly category?: string;
+  readonly type?: string;
   /** [south, north, west, east] as decimal-degree strings */
-  boundingbox?: string[];
-  address?: NominatimAddress;
+  readonly boundingbox?: readonly string[];
+  readonly address?: NominatimAddress;
   /** Reverse lookups report failures in the body with HTTP 200 */
-  error?: string;
+  readonly error?: string;
 }
 
+/**
+ * Address parts of one place; the city falls back down to the municipality.
+ *
+ * @param address - The place's address details.
+ * @returns {GeoAddress | undefined} The parts, or nothing when there are none.
+ */
 function mapAddress(address?: NominatimAddress): GeoAddress | undefined {
   if (!address) return undefined;
   return compactAddress({
@@ -73,6 +79,12 @@ function mapAddress(address?: NominatimAddress): GeoAddress | undefined {
   });
 }
 
+/**
+ * One place as a location.
+ *
+ * @param raw - One place.
+ * @returns {GeoLocation} The location.
+ */
 function mapPlace(raw: NominatimPlace): GeoLocation {
   const box = raw.boundingbox?.map(Number);
   return {
@@ -108,7 +120,12 @@ class OpenStreetMap extends Provider {
     };
   }
 
-  /** Shared query-string tail for both geocoding shapes; `layers` maps 1:1 onto `layer`. */
+  /**
+   * Shared query-string tail for both geocoding shapes; `layers` maps 1:1 onto `layer`.
+   *
+   * @param options - Limit, language and filters.
+   * @returns {Record<string, string | number | undefined>} The parameters.
+   */
   private searchParams(options?: GeocodeOptions): Record<string, string | number | undefined> {
     const countryCodes = options?.countryCodes?.map((code) => code.toLowerCase()).join(",");
     return {
@@ -129,7 +146,13 @@ class OpenStreetMap extends Provider {
     return data.map((place) => mapPlace(place));
   }
 
-  /** Nominatim structured search; `street` carries "housenumber streetname" per its contract. */
+  /**
+   * Nominatim structured search; `street` carries "housenumber streetname" per its contract.
+   *
+   * @param address - Address parts to look up.
+   * @param options - Limit, language and filters.
+   * @returns {Promise<GeoLocation[]>} The matches.
+   */
   async geocodeAddress(address: GeoAddress, options?: GeocodeOptions): Promise<GeoLocation[]> {
     assertAddress(address, "openstreetmap");
     assertLayers(options?.layers, "openstreetmap");

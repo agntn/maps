@@ -16,9 +16,14 @@ export class MapsError extends Error {
   }
 }
 
-/** Strip API keys from URLs and URL-bearing text for safe error messages. */
+/**
+ * Strip API keys from URLs and URL-bearing text for safe error messages.
+ *
+ * @param url - A URL, or text holding one.
+ * @returns {string} The text with secret query values redacted.
+ */
 function sanitizeUrl(url: string): string {
-  return url.replace(/([?&])(api[-_]?key|key|secret|token)=[^&#]*/gi, "$1$2=REDACTED");
+  return url.replaceAll(/([?&])(api[-_]?key|key|secret|token)=[^&#]*/gi, "$1$2=REDACTED");
 }
 
 /** HTTP failure with a redacted request URL in its message and a redacted response body. */
@@ -123,49 +128,136 @@ export class ResponseError extends Error {
   }
 }
 
+/** What the classifiers read off a thrown value. */
+interface Failure {
+  readonly message: string;
+  readonly lower: string;
+  readonly status: number;
+  readonly url: string | undefined;
+  /** Response body, when a response came back. */
+  readonly body: string | undefined;
+  readonly provider: string | undefined;
+  /** The provider, or `unknown` for the classes that need a name. */
+  readonly source: string;
+}
+
+/**
+ * What a `ResponseError` knows that a bare message doesn't.
+ *
+ * @param error - The thrown value.
+ * @returns {Partial<Failure>} Status, URL and body, or nothing.
+ */
+function responseParts(error: unknown): Partial<Failure> {
+  if (!(error instanceof ResponseError)) return {};
+  return { status: error.status, url: error.url, body: error.body };
+}
+
+/**
+ * Read the status, URL and message off whatever was thrown.
+ *
+ * @param error - The thrown value.
+ * @param provider - Provider the request belonged to.
+ * @param requestUrl - URL of the request, when the caller knows it.
+ * @returns {Failure} The parts the classifiers read.
+ */
+function describeFailure(error: unknown, provider?: string, requestUrl?: string): Failure {
+  const message = error instanceof Error ? error.message : String(error);
+  const sent = responseParts(error);
+  return {
+    message,
+    lower: message.toLowerCase(),
+    status: sent.status ?? Number(/HTTP (\d{3})/i.exec(message)?.[1] ?? 0),
+    url: requestUrl ?? sent.url,
+    body: sent.body,
+    provider,
+    source: provider ?? "unknown",
+  };
+}
+
+/**
+ * A 404, or a message that says so.
+ *
+ * @param failure - The failure to sort.
+ * @returns {MapsError | undefined} The error, or nothing when this isn't one.
+ */
+function notFound(failure: Failure): MapsError | undefined {
+  if (failure.status !== 404 && !failure.lower.includes("not found")) return undefined;
+  return new NotFoundError(failure.url ?? failure.message, failure.provider);
+}
+
+/**
+ * A 429, or a message that says so.
+ *
+ * @param failure - The failure to sort.
+ * @returns {MapsError | undefined} The error, or nothing when this isn't one.
+ */
+function rateLimited(failure: Failure): MapsError | undefined {
+  if (failure.status !== 429 && !failure.lower.includes("rate limit")) return undefined;
+  return new RateLimitError(failure.source);
+}
+
+/**
+ * A 402.
+ *
+ * @param failure - The failure to sort.
+ * @returns {MapsError | undefined} The error, or nothing when this isn't one.
+ */
+function paymentRequired(failure: Failure): MapsError | undefined {
+  return failure.status === 402 ? new PaymentError(failure.source, failure.status) : undefined;
+}
+
+/**
+ * A 401 or a 403, or a message that says so.
+ *
+ * @param failure - The failure to sort.
+ * @returns {MapsError | undefined} The error, or nothing when this isn't one.
+ */
+function unauthorized(failure: Failure): MapsError | undefined {
+  const { status, url } = failure;
+  if (status !== 401 && status !== 403 && !failure.lower.includes("unauthorized")) {
+    return undefined;
+  }
+  return new AuthError(failure.source, url ? `HTTP ${status} from ${url}` : failure.message);
+}
+
+/** Messages of a request that never got an answer. */
+const TRANSPORT_HINTS = ["econnrefused", "etimedout", "timeouterror"];
+
+/**
+ * Any other status, or a request that died on the wire.
+ *
+ * @param failure - The failure to sort.
+ * @returns {MapsError | undefined} The error, or nothing when this isn't one.
+ */
+function transport(failure: Failure): MapsError | undefined {
+  const { status, url, lower } = failure;
+  if (!(status > 0 || url || TRANSPORT_HINTS.some((hint) => lower.includes(hint)))) {
+    return undefined;
+  }
+  return new HTTPError(status, url ?? "unknown", failure.body ?? failure.message, failure.provider);
+}
+
+/** First match wins, so a 404 is never read as a plain HTTP error. */
+const CLASSIFIERS = [notFound, rateLimited, paymentRequired, unauthorized, transport];
+
 /**
  * Turn an unknown provider or transport failure into the Maps error hierarchy.
  *
  * Existing `MapsError` instances pass through unchanged. Structured HTTP failures retain their
  * status, response body, and redacted request URL.
+ *
+ * @param error - The thrown value.
+ * @param provider - Provider the request belonged to.
+ * @param requestUrl - URL of the request, when the caller knows it.
+ * @returns {MapsError} The failure as one of the library's classes.
  */
 export function normalizeError(error: unknown, provider?: string, requestUrl?: string): MapsError {
   if (error instanceof MapsError) return error;
 
-  const message = error instanceof Error ? error.message : String(error);
-  const lowerMessage = message.toLowerCase();
-  const response = error instanceof ResponseError ? error : undefined;
-  const statusMatch = message.match(/HTTP (\d{3})/i);
-  const status = response?.status ?? Number(statusMatch?.[1] ?? 0);
-  const url = requestUrl ?? response?.url;
-  const resource = url ?? message;
-
-  if (status === 404 || lowerMessage.includes("not found")) {
-    return new NotFoundError(resource, provider);
+  const failure = describeFailure(error, provider, requestUrl);
+  for (const classify of CLASSIFIERS) {
+    const sorted = classify(failure);
+    if (sorted) return sorted;
   }
-
-  if (status === 429 || lowerMessage.includes("rate limit")) {
-    return new RateLimitError(provider ?? "unknown");
-  }
-
-  if (status === 402) {
-    return new PaymentError(provider ?? "unknown", status);
-  }
-
-  if (status === 401 || status === 403 || lowerMessage.includes("unauthorized")) {
-    const detail = url ? `HTTP ${status} from ${url}` : message;
-    return new AuthError(provider ?? "unknown", detail);
-  }
-
-  if (
-    status > 0 ||
-    url ||
-    lowerMessage.includes("econnrefused") ||
-    lowerMessage.includes("etimedout") ||
-    lowerMessage.includes("timeouterror")
-  ) {
-    return new HTTPError(status, url ?? "unknown", response?.body ?? message, provider);
-  }
-
-  return new MapsError(message, provider);
+  return new MapsError(failure.message, provider);
 }

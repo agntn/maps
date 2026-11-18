@@ -13,21 +13,43 @@ export interface GeoPoint {
 /** IUGG mean Earth radius. */
 const EARTH_RADIUS_METERS = 6_371_008.8;
 
+/**
+ * Degrees as radians.
+ *
+ * @param degrees - An angle in degrees.
+ * @returns {number} The same angle in radians.
+ */
 function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
-/** True when `value` is a finite latitude between -90 and 90 inclusive. */
+/**
+ * True when `value` is a finite latitude between -90 and 90 inclusive.
+ *
+ * @param value - Latitude to check.
+ * @returns {boolean} Whether it's in range.
+ */
 export function isValidLatitude(value: number): boolean {
   return Number.isFinite(value) && value >= -90 && value <= 90;
 }
 
-/** True when `value` is a finite longitude between -180 and 180 inclusive. */
+/**
+ * True when `value` is a finite longitude between -180 and 180 inclusive.
+ *
+ * @param value - Longitude to check.
+ * @returns {boolean} Whether it's in range.
+ */
 export function isValidLongitude(value: number): boolean {
   return Number.isFinite(value) && value >= -180 && value <= 180;
 }
 
-/** True when the pair is a valid WGS 84 coordinate. */
+/**
+ * True when the pair is a valid WGS 84 coordinate.
+ *
+ * @param latitude - Latitude in decimal degrees.
+ * @param longitude - Longitude in decimal degrees.
+ * @returns {boolean} Whether both are in range.
+ */
 export function isValidCoordinates(latitude: number, longitude: number): boolean {
   return isValidLatitude(latitude) && isValidLongitude(longitude);
 }
@@ -35,6 +57,9 @@ export function isValidCoordinates(latitude: number, longitude: number): boolean
 /**
  * Reject an out-of-range coordinate pair before any request is sent.
  *
+ * @param latitude - Latitude in decimal degrees.
+ * @param longitude - Longitude in decimal degrees.
+ * @param provider - Provider to blame.
  * @throws {InvalidInputError} When either component is out of range or not finite.
  */
 export function assertCoordinates(latitude: number, longitude: number, provider?: string): void {
@@ -64,6 +89,9 @@ export function assertCoordinates(latitude: number, longitude: number, provider?
  *   distanceBetween({ latitude: 0, longitude: 0 }, { latitude: 0, longitude: 1 }); // ~111195
  *   ```
  *
+ * @param from - Start point.
+ * @param to - End point.
+ * @returns {number} Meters along the great circle.
  * @throws {InvalidInputError} When either point is out of range or not finite.
  */
 export function distanceBetween(from: GeoPoint, to: GeoPoint): number {
@@ -84,6 +112,9 @@ export function distanceBetween(from: GeoPoint, to: GeoPoint): number {
  *
  * Measured clockwise from true north, 0 through 360. Like `distanceBetween`, this runs locally.
  *
+ * @param from - Start point.
+ * @param to - End point.
+ * @returns {number} Degrees clockwise from north.
  * @throws {InvalidInputError} When either point is out of range or not finite.
  */
 export function bearingBetween(from: GeoPoint, to: GeoPoint): number {
@@ -105,19 +136,36 @@ interface RhumbSteps {
   stretched: number;
 }
 
-/** Cosine of a latitude in degrees, from its distance to the pole: exactly zero at 90. */
+/**
+ * Cosine of a latitude in degrees, from its distance to the pole: exactly zero at 90.
+ *
+ * @param degrees - Latitude in degrees.
+ * @returns {number} Its cosine.
+ */
 function cosLatitude(degrees: number): number {
   return Math.sin(toRadians(90 - Math.abs(degrees)));
 }
 
-/** Mercator latitude step between two latitudes in degrees. Infinite at a pole, as on the chart. */
+/**
+ * Mercator latitude step between two latitudes in degrees. Infinite at a pole, as on the chart.
+ *
+ * @param from - Start latitude.
+ * @param to - End latitude.
+ * @returns {number} The step on the Mercator chart.
+ */
 function mercatorStep(from: number, to: number): number {
   if (from === to) return 0;
   const sines = 2 * Math.cos(toRadians((from + to) / 2)) * Math.sin(toRadians(to - from) / 2);
   return Math.asinh(sines / (cosLatitude(from) * cosLatitude(to)));
 }
 
-/** Rhumb steps in radians, longitude the shorter way round. */
+/**
+ * Rhumb steps in radians, longitude the shorter way round.
+ *
+ * @param from - Start point.
+ * @param to - End point.
+ * @returns {RhumbSteps} Latitude, longitude and stretched latitude steps.
+ */
 function rhumbSteps(from: GeoPoint, to: GeoPoint): RhumbSteps {
   assertCoordinates(from.latitude, from.longitude);
   assertCoordinates(to.latitude, to.longitude);
@@ -142,6 +190,9 @@ function rhumbSteps(from: GeoPoint, to: GeoPoint): RhumbSteps {
  *   // ~8197711, against ~7871780 along the great circle
  *   ```
  *
+ * @param from - Start point.
+ * @param to - End point.
+ * @returns {number} Meters along the rhumb line.
  * @throws {InvalidInputError} When either point is out of range or not finite.
  */
 export function rhumbDistanceBetween(from: GeoPoint, to: GeoPoint): number {
@@ -155,6 +206,9 @@ export function rhumbDistanceBetween(from: GeoPoint, to: GeoPoint): number {
  *
  * Measured clockwise from true north, 0 through 360. Hold it all the way and you arrive.
  *
+ * @param from - Start point.
+ * @param to - End point.
+ * @returns {number} Degrees clockwise from north.
  * @throws {InvalidInputError} When either point is out of range or not finite.
  */
 export function rhumbBearingBetween(from: GeoPoint, to: GeoPoint): number {
@@ -170,6 +224,8 @@ export function rhumbBearingBetween(from: GeoPoint, to: GeoPoint): number {
  *   parseCoordinates("52.2318,21.0067"); // { latitude: 52.2318, longitude: 21.0067 }
  *   ```
  *
+ * @param input - Text such as `52.2318,21.0067`.
+ * @returns {GeoPoint} The pair.
  * @throws {InvalidInputError} When the input is not two comma-separated decimal degrees in range.
  */
 export function parseCoordinates(input: string): GeoPoint {

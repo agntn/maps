@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   convertCoordinates,
   decodeCoordinates,
@@ -46,10 +46,9 @@ describe("degrees", () => {
 
   it("puts southern and western hemispheres below zero", () => {
     expect(parseDegrees(`33°51'24.5"S 151°12'55.1"E`).point.latitude).toBeCloseTo(-33.8568, 4);
-    expect(parseDegrees("S 33 51.408 W 70 0").point).toEqual({
-      latitude: expect.closeTo(-33.8568, 4),
-      longitude: -70,
-    });
+    const { point } = parseDegrees("S 33 51.408 W 70 0");
+    expect(point.latitude).toBeCloseTo(-33.8568, 4);
+    expect(point.longitude).toBe(-70);
   });
 
   it.each([
@@ -337,10 +336,9 @@ describe("convertCoordinates", () => {
 
   it("skips a format the point does not fit unless it was asked for", async () => {
     const pole = await convertCoordinates("90, 0");
-    expect(pole.skipped).toEqual({
-      utm: expect.stringContaining("UPS"),
-      mgrs: expect.stringContaining("UPS"),
-    });
+    expect(Object.keys(pole.skipped ?? {})).toEqual(["utm", "mgrs"]);
+    expect(pole.skipped?.utm).toContain("UPS");
+    expect(pole.skipped?.mgrs).toContain("UPS");
     expect(pole.formats.utm).toBeUndefined();
     await expect(convertCoordinates("90, 0", { to: ["utm"] })).rejects.toThrow("UPS");
   });
@@ -426,7 +424,8 @@ describe("what3words", () => {
     stubJSON({ error: { code: "QuotaExceeded", message: "quota" } }, 402);
     const result = await convertCoordinates("52.2297, 21.0122");
     expect(result.formats.maidenhead).toBe("KO02mf");
-    expect(result.skipped).toEqual({ what3words: expect.stringContaining("Payment required") });
+    expect(Object.keys(result.skipped ?? {})).toEqual(["what3words"]);
+    expect(result.skipped?.what3words).toContain("Payment required");
     await expect(convertCoordinates("52.2297, 21.0122", { to: ["what3words"] })).rejects.toThrow(
       "Payment required",
     );

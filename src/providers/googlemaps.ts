@@ -11,6 +11,7 @@
  */
 
 import type {
+  BoundingBox,
   GeoAddress,
   GeoLocation,
   GeocodeLayer,
@@ -21,7 +22,7 @@ import type {
 } from "../core/types.ts";
 import { Provider, assertAddress, assertLayers, assertQuery } from "../core/provider.ts";
 import { buildQuery } from "../core/client.ts";
-import { assertCoordinates } from "../core/coordinates.ts";
+import { assertCoordinates, type GeoPoint } from "../core/coordinates.ts";
 import {
   AuthError,
   InvalidInputError,
@@ -61,59 +62,85 @@ const GRANULARITY_RESULT_TYPE = {
 } as const;
 
 interface GoogleLatLng {
-  lat?: number;
-  lng?: number;
+  readonly lat?: number;
+  readonly lng?: number;
+}
+
+interface GoogleViewport {
+  readonly northeast?: GoogleLatLng;
+  readonly southwest?: GoogleLatLng;
+}
+
+interface GoogleComponent {
+  readonly long_name?: string;
+  readonly short_name?: string;
+  readonly types?: readonly string[];
 }
 
 interface GoogleResult {
-  formatted_address?: string;
-  geometry?: {
-    location?: GoogleLatLng;
-    viewport?: { northeast?: GoogleLatLng; southwest?: GoogleLatLng };
-  };
-  types?: string[];
-  address_components?: Array<{ long_name?: string; short_name?: string; types?: string[] }>;
+  readonly formatted_address?: string;
+  readonly geometry?: { readonly location?: GoogleLatLng; readonly viewport?: GoogleViewport };
+  readonly types?: readonly string[];
+  readonly address_components?: readonly GoogleComponent[];
 }
 
 interface GoogleResponse {
-  status?: string;
-  results?: GoogleResult[];
-  error_message?: string;
+  readonly status?: string;
+  readonly results?: readonly GoogleResult[];
+  readonly error_message?: string;
 }
 
-/** Map the in-body `status` onto the error hierarchy; OK and ZERO_RESULTS pass through. */
-function assertOkStatus(data: GoogleResponse): GoogleResult[] {
+/** The body's `status` to the error it stands for. Anything else is a plain `MapsError`. */
+const STATUS_ERRORS = new Map<string, (detail: string) => MapsError>([
+  ["REQUEST_DENIED", (detail) => new AuthError("googlemaps", detail)],
+  ["OVER_QUERY_LIMIT", () => new RateLimitError("googlemaps")],
+  ["OVER_DAILY_LIMIT", () => new RateLimitError("googlemaps")],
+  ["INVALID_REQUEST", (detail) => new InvalidInputError(detail, "googlemaps")],
+]);
+
+/**
+ * Map the in-body `status` onto the error hierarchy; OK and ZERO_RESULTS pass through.
+ *
+ * @param data - The response body.
+ * @returns {readonly GoogleResult[]} The results, none for ZERO_RESULTS.
+ * @throws {MapsError} For every other status, as the class it stands for.
+ */
+function assertOkStatus(data: GoogleResponse): readonly GoogleResult[] {
   const status = data.status ?? "UNKNOWN";
   if (status === "OK" || status === "ZERO_RESULTS") return data.results ?? [];
   const detail = data.error_message ? `${status}: ${data.error_message}` : status;
-  switch (status) {
-    case "REQUEST_DENIED": {
-      throw new AuthError("googlemaps", detail);
-    }
-    case "OVER_QUERY_LIMIT":
-    case "OVER_DAILY_LIMIT": {
-      throw new RateLimitError("googlemaps");
-    }
-    case "INVALID_REQUEST": {
-      throw new InvalidInputError(detail, "googlemaps");
-    }
-    default: {
-      throw new MapsError(detail, "googlemaps");
-    }
-  }
+  throw STATUS_ERRORS.get(status)?.(detail) ?? new MapsError(detail, "googlemaps");
 }
 
-/** Layer of one result, partitioned the way Nominatim does it: natural, then poi, else address. */
-function layerOf(types: string[] = []): GeocodeLayer {
+/**
+ * Layer of one result, partitioned the way Nominatim does it: natural, then poi, else address.
+ *
+ * @param types - The result's `types`.
+ * @returns {GeocodeLayer} Its layer.
+ */
+function layerOf(types: readonly string[] = []): GeocodeLayer {
   if (types.includes("natural_feature")) return "natural";
   if (types.some((type) => POI_TYPES.has(type))) return "poi";
   return "address";
 }
 
-function component(raw: GoogleResult, type: string) {
+/**
+ * The address component of one type.
+ *
+ * @param raw - One result.
+ * @param type - Component type, such as `route`.
+ * @returns {GoogleComponent | undefined} The component, when the result has it.
+ */
+function component(raw: GoogleResult, type: string): GoogleComponent | undefined {
   return raw.address_components?.find((entry) => entry.types?.includes(type));
 }
 
+/**
+ * Address parts of one result, by `long_name`.
+ *
+ * @param raw - One result.
+ * @returns {GeoAddress | undefined} The parts, or nothing when there are none.
+ */
 function mapAddress(raw: GoogleResult): GeoAddress | undefined {
   return compactAddress({
     houseNumber: component(raw, "street_number")?.long_name,
@@ -125,29 +152,76 @@ function mapAddress(raw: GoogleResult): GeoAddress | undefined {
   });
 }
 
-function mapResult(raw: GoogleResult): GeoLocation | undefined {
-  const location = raw.geometry?.location;
-  if (location?.lat === undefined || location.lng === undefined) return undefined;
-  const northeast = raw.geometry?.viewport?.northeast;
-  const southwest = raw.geometry?.viewport?.southwest;
-  const country = component(raw, "country")?.short_name;
+/**
+ * A `lat`/`lng` pair as a point, when both are there.
+ *
+ * @param pair - A pair off the wire.
+ * @returns {GeoPoint | undefined} The point, or nothing when half is missing.
+ */
+function toPoint(pair: GoogleLatLng | undefined): GeoPoint | undefined {
+  if (pair?.lat === undefined || pair.lng === undefined) return undefined;
+  return { latitude: pair.lat, longitude: pair.lng };
+}
 
+/**
+ * The viewport as a bounding box, when all four edges are there.
+ *
+ * @param viewport - The result's viewport.
+ * @returns {BoundingBox | undefined} The box, or nothing.
+ */
+function toBox(viewport: GoogleViewport | undefined): BoundingBox | undefined {
+  const northeast = toPoint(viewport?.northeast);
+  const southwest = toPoint(viewport?.southwest);
+  if (!northeast || !southwest) return undefined;
   return {
-    latitude: location.lat,
-    longitude: location.lng,
+    south: southwest.latitude,
+    north: northeast.latitude,
+    west: southwest.longitude,
+    east: northeast.longitude,
+  };
+}
+
+/**
+ * One result as a location.
+ *
+ * @param raw - One result.
+ * @returns {GeoLocation | undefined} The location, or nothing without coordinates.
+ */
+function mapResult(raw: GoogleResult): GeoLocation | undefined {
+  const point = toPoint(raw.geometry?.location);
+  if (!point) return undefined;
+  return {
+    ...point,
     displayName: raw.formatted_address,
     category: raw.types?.[0],
-    countryCode: country?.toLowerCase(),
+    countryCode: component(raw, "country")?.short_name?.toLowerCase(),
     address: mapAddress(raw),
-    boundingBox:
-      northeast?.lat !== undefined &&
-      northeast.lng !== undefined &&
-      southwest?.lat !== undefined &&
-      southwest.lng !== undefined
-        ? { south: southwest.lat, north: northeast.lat, west: southwest.lng, east: northeast.lng }
-        : undefined,
+    boundingBox: toBox(raw.geometry?.viewport),
     raw: raw as unknown as Record<string, unknown>,
   };
+}
+
+/**
+ * The `components` filter: country codes, and for a structured address its parts.
+ *
+ * @param countryCodes - ISO country codes to restrict to.
+ * @param address - Address parts; street and house number travel elsewhere.
+ * @returns {string | undefined} The filter, or nothing when it's empty.
+ */
+function componentsFilter(
+  countryCodes: readonly string[] = [],
+  address: GeoAddress = {},
+): string | undefined {
+  const named = [
+    ["locality", address.city],
+    ["administrative_area", address.state],
+    ["postal_code", address.postcode],
+    ["country", address.country],
+  ]
+    .filter(([, value]) => value)
+    .map(([name, value]) => `${name}:${value}`);
+  const codes = countryCodes.map((code) => `country:${code.toUpperCase()}`);
+  return [...named, ...codes].join("|") || undefined;
 }
 
 class GoogleMaps extends Provider {
@@ -174,15 +248,27 @@ class GoogleMaps extends Provider {
     };
   }
 
+  /**
+   * One request to the API, its in-body status checked.
+   *
+   * @param params - Query parameters; the key is added here.
+   * @returns {Promise<readonly GoogleResult[]>} The results.
+   */
   private async fetchResults(
-    params: Record<string, string | number | undefined>,
-  ): Promise<GoogleResult[]> {
+    params: Readonly<Record<string, string | number | undefined>>,
+  ): Promise<readonly GoogleResult[]> {
     const url = `${this.baseUrl}${buildQuery({ ...params, key: this.apiKey })}`;
     return assertOkStatus(await this.getJSON<GoogleResponse>(url));
   }
 
-  /** Apply the local layer filter, normalize, and cut to the requested limit. */
-  private collect(results: GoogleResult[], options?: GeocodeOptions): GeoLocation[] {
+  /**
+   * Apply the local layer filter, normalize, and cut to the requested limit.
+   *
+   * @param results - Results as the API sent them.
+   * @param options - Layers and limit.
+   * @returns {GeoLocation[]} The matches.
+   */
+  private collect(results: readonly GoogleResult[], options?: GeocodeOptions): GeoLocation[] {
     const layers = options?.layers?.length ? options.layers : undefined;
     return results
       .filter((raw) => !layers || layers.includes(layerOf(raw.types)))
@@ -194,13 +280,10 @@ class GoogleMaps extends Provider {
   async geocode(query: string, options?: GeocodeOptions): Promise<GeoLocation[]> {
     assertQuery(query, "googlemaps");
     assertLayers(options?.layers, "googlemaps");
-    const components = options?.countryCodes
-      ?.map((code) => `country:${code.toUpperCase()}`)
-      .join("|");
     const results = await this.fetchResults({
       address: query,
       language: options?.language,
-      components: components || undefined,
+      components: componentsFilter(options?.countryCodes),
     });
     return this.collect(results, options);
   }
@@ -208,23 +291,18 @@ class GoogleMaps extends Provider {
   /**
    * Street and house number ride in the free-form `address` param (Google's components filter
    * has no street_number type); the remaining fields become `components` entries.
+   *
+   * @param address - Address parts to look up.
+   * @param options - Limit, language and filters.
+   * @returns {Promise<GeoLocation[]>} The matches.
    */
   async geocodeAddress(address: GeoAddress, options?: GeocodeOptions): Promise<GeoLocation[]> {
     assertAddress(address, "googlemaps");
     assertLayers(options?.layers, "googlemaps");
     const street = [address.houseNumber, address.road].filter(Boolean).join(" ");
-    const components = [
-      address.city ? `locality:${address.city}` : undefined,
-      address.state ? `administrative_area:${address.state}` : undefined,
-      address.postcode ? `postal_code:${address.postcode}` : undefined,
-      address.country ? `country:${address.country}` : undefined,
-      ...(options?.countryCodes?.map((code) => `country:${code.toUpperCase()}`) ?? []),
-    ]
-      .filter(Boolean)
-      .join("|");
     const results = await this.fetchResults({
       address: street || undefined,
-      components: components || undefined,
+      components: componentsFilter(options?.countryCodes, address),
       language: options?.language,
     });
     return this.collect(results, options);

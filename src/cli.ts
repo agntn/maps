@@ -16,12 +16,22 @@ import { mapsTools } from "./tools.ts";
 const sourceMcp = new URL("../src/mcp.ts", import.meta.url);
 const sourceMcpPath = fileURLToPath(sourceMcp);
 
-/** Narrows what a runtime URL import returned, which TypeScript types as `any`. */
+/**
+ * Narrows what a runtime URL import returned, which TypeScript types as `any`.
+ *
+ * @param value - The imported module.
+ * @returns {boolean} Whether it exports `createMcpServer`.
+ */
 function isMcpModule(value: unknown): value is { createMcpServer: typeof createMcpServer } {
   return typeof value === "object" && value !== null && "createMcpServer" in value;
 }
 
-/** In a checkout a bare `maps mcp` serves `src/` live. `MAPS_DIST=1` keeps the bundle. */
+/**
+ * In a checkout a bare `maps mcp` serves `src/` live. `MAPS_DIST=1` keeps the bundle.
+ *
+ * @param argv - Arguments after the binary.
+ * @returns {boolean} Whether to serve `src/`.
+ */
 function servesSource(argv: readonly string[]): boolean {
   return (
     argv.length === 1 &&

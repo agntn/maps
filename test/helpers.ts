@@ -1,4 +1,4 @@
-import { vi } from "vitest";
+import { vi } from "vite-plus/test";
 
 /** Look up a registered extension tool, failing loudly when registration missed it. */
 export function requireTool<T>(tools: Map<string, T>, name: string): T {
@@ -18,6 +18,18 @@ export function stubJSON(body: unknown, status = 200) {
   );
   vi.stubGlobal("fetch", fetch);
   return fetch;
+}
+
+/** The address of a request, whichever of the three shapes fetch takes. */
+export function urlOf(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  return input instanceof URL ? input.href : input.url;
+}
+
+/** The URL a stubbed fetch was called with, empty when that call never happened. */
+export function requestedUrl(fetch: ReturnType<typeof stubJSON>, call = 0): string {
+  const input = fetch.mock.calls[call]?.[0];
+  return input === undefined ? "" : urlOf(input);
 }
 
 /** Stub global fetch with requests that settle only on abort; returns the signals they got. */

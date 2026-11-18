@@ -75,12 +75,30 @@ export interface ProvidersDetails {
   providers: ProviderListing[];
 }
 
-/** Provider text reaches terminals here: lines and indents stay, escapes and bidi tricks don't. */
+/** Tool arguments as an executor reads them: lists it never writes to. */
+type Input<Schema> = {
+  readonly [Key in keyof Schema]: Schema[Key] extends (infer Item)[] | undefined
+    ? readonly Item[] | Extract<Schema[Key], undefined>
+    : Schema[Key];
+};
+
+/**
+ * Provider text reaches terminals here: lines and indents stay, escapes and bidi tricks don't.
+ *
+ * @param text - Text for the host.
+ * @param details - The data behind it.
+ * @returns {ToolResult<Details>} The tool result.
+ */
 function answer<Details>(text: string, details: Details): ToolResult<Details> {
   return { content: [{ type: "text", text: sanitizeText(text) }], details };
 }
 
-/** The schema let only text with a non-space through, so a trim never leaves it empty. */
+/**
+ * The schema let only text with a non-space through, so a trim never leaves it empty.
+ *
+ * @param value - Optional text.
+ * @returns {string | undefined} The text without outer whitespace.
+ */
 function trimmed(value: string | undefined): string | undefined {
   return value?.trim();
 }
@@ -91,7 +109,7 @@ export async function providers(): Promise<ToolResult<ProvidersDetails>> {
 }
 
 export async function geocode(
-  params: Static<typeof geocodeSchema>,
+  params: Input<Static<typeof geocodeSchema>>,
   signal?: AbortSignal,
 ): Promise<ToolResult<GeocodeDetails>> {
   const query = params.query.trim();
@@ -100,7 +118,7 @@ export async function geocode(
     limit: params.limit,
     language: trimmed(params.language),
     countryCodes: params.countryCodes?.map((code) => code.trim()),
-    layers: params.layers as GeocodeLayer[] | undefined,
+    layers: params.layers?.map((layer) => layer as GeocodeLayer),
   };
   if (isAllProviders(params.provider)) {
     const outcomes = await geocodeAll(query, options, signal);
@@ -193,7 +211,13 @@ export async function reverse(
   });
 }
 
-/** The schema's enum again, for a caller that reaches the executor without it. */
+/**
+ * The schema's enum again, for a caller that reaches the executor without it.
+ *
+ * @param value - The `path` argument as given.
+ * @returns {DistancePath} The path, great circle by default.
+ * @throws {InvalidInputError} When the value names no path.
+ */
 function distancePathOf(value: string | undefined): DistancePath {
   const path = DISTANCE_PATHS.find((known) => known === (value ?? "great-circle"));
   if (path === undefined) {
@@ -223,12 +247,12 @@ export async function distance(
 }
 
 export async function convert(
-  params: Static<typeof convertSchema>,
+  params: Input<Static<typeof convertSchema>>,
   signal?: AbortSignal,
 ): Promise<ToolResult<CoordinateConversion>> {
   const conversion = await convertCoordinates(params.input.trim(), {
     from: params.from as CoordinateFormat | undefined,
-    to: params.to as CoordinateFormat[] | undefined,
+    to: params.to as readonly CoordinateFormat[] | undefined,
     precision: params.precision as CoordinatePrecision | undefined,
     reference: params.reference,
     language: trimmed(params.language),

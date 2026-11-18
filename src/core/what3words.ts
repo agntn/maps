@@ -38,32 +38,49 @@ export interface What3wordsSquare {
 }
 
 interface W3wLatLng {
-  lat?: number;
-  lng?: number;
+  readonly lat?: number;
+  readonly lng?: number;
 }
 
 interface W3wResponse {
-  words?: string;
-  coordinates?: W3wLatLng;
-  square?: { southwest?: W3wLatLng; northeast?: W3wLatLng };
-  nearestPlace?: string;
-  country?: string;
+  readonly words?: string;
+  readonly coordinates?: W3wLatLng;
+  readonly square?: { readonly southwest?: W3wLatLng; readonly northeast?: W3wLatLng };
+  readonly nearestPlace?: string;
+  readonly country?: string;
 }
 
 const SEPARATORS = "[.｡。･・︒។։။۔።।]";
 const WORD = "[\\p{L}\\p{M}]+";
 const WORDS_PATTERN = new RegExp(`^(?:///)?${WORD}${SEPARATORS}${WORD}${SEPARATORS}${WORD}$`, "u");
 
-/** True when the text has the shape of a three word address (`///` prefix optional). */
+/**
+ * True when the text has the shape of a three word address (`///` prefix optional).
+ *
+ * @param text - Candidate text.
+ * @returns {boolean} Whether it has the shape.
+ */
 export function isWhat3words(text: string): boolean {
   return WORDS_PATTERN.test(text.trim());
 }
 
-/** True when a key is passed or set in the environment. */
+/**
+ * True when a key is passed or set in the environment.
+ *
+ * @param options - Options that may carry a key.
+ * @returns {boolean} Whether a key is at hand.
+ */
 export function hasWhat3wordsKey(options?: What3wordsOptions): boolean {
   return Boolean(options?.apiKey?.trim() || process.env[WHAT3WORDS_ENV]?.trim());
 }
 
+/**
+ * The key to send, from the options or the environment.
+ *
+ * @param options - Options that may carry a key.
+ * @returns {string} The key.
+ * @throws {AuthError} When neither has one.
+ */
 function requireKey(options?: What3wordsOptions): string {
   const key = options?.apiKey?.trim() || process.env[WHAT3WORDS_ENV]?.trim();
   if (!key) {
@@ -72,7 +89,12 @@ function requireKey(options?: What3wordsOptions): string {
   return key;
 }
 
-/** what3words answers a bad request with `{ error: { code, message } }`; keep its words. */
+/**
+ * what3words answers a bad request with `{ error: { code, message } }`; keep its words.
+ *
+ * @param error - What the request threw.
+ * @throws {InvalidInputError} With the API's own reason for a 400.
+ */
 function explain(error: unknown): never {
   if (error instanceof HTTPError && error.statusCode === 400 && error.body) {
     try {
@@ -90,29 +112,39 @@ function explain(error: unknown): never {
   throw error;
 }
 
+/**
+ * A corner as a point, when the API sent both numbers.
+ *
+ * @param corner - A `lat`/`lng` pair off the wire.
+ * @returns {GeoPoint | undefined} The point, or nothing when a number is missing.
+ */
+function toPoint(corner: W3wLatLng | undefined): GeoPoint | undefined {
+  if (typeof corner?.lat !== "number" || typeof corner.lng !== "number") return undefined;
+  return { latitude: corner.lat, longitude: corner.lng };
+}
+
+/**
+ * The API's answer as a square.
+ *
+ * @param response - The body what3words sent.
+ * @returns {What3wordsSquare} Words, middle and bounds.
+ * @throws {MapsError} When the answer lacks one of the three.
+ */
 function toSquare(response: W3wResponse): What3wordsSquare {
-  const { coordinates, square, words } = response;
-  const southwest = square?.southwest;
-  const northeast = square?.northeast;
-  if (
-    typeof words !== "string" ||
-    typeof coordinates?.lat !== "number" ||
-    typeof coordinates.lng !== "number" ||
-    typeof southwest?.lat !== "number" ||
-    typeof southwest.lng !== "number" ||
-    typeof northeast?.lat !== "number" ||
-    typeof northeast.lng !== "number"
-  ) {
+  const center = toPoint(response.coordinates);
+  const southwest = toPoint(response.square?.southwest);
+  const northeast = toPoint(response.square?.northeast);
+  if (typeof response.words !== "string" || !center || !southwest || !northeast) {
     throw new MapsError("what3words answered without words, coordinates or square", PROVIDER);
   }
   return {
-    words,
-    center: { latitude: coordinates.lat, longitude: coordinates.lng },
+    words: response.words,
+    center,
     bounds: {
-      south: southwest.lat,
-      north: northeast.lat,
-      west: southwest.lng,
-      east: northeast.lng,
+      south: southwest.latitude,
+      north: northeast.latitude,
+      west: southwest.longitude,
+      east: northeast.longitude,
     },
     nearestPlace: response.nearestPlace || undefined,
     country: response.country || undefined,
@@ -122,6 +154,9 @@ function toSquare(response: W3wResponse): What3wordsSquare {
 /**
  * The square behind a three word address.
  *
+ * @param words - The three word address.
+ * @param options - Key, signal and base URL.
+ * @returns {Promise<What3wordsSquare>} The square.
  * @throws {AuthError} Without a key, or when what3words rejects it.
  * @throws {InvalidInputError} When what3words does not know the words.
  */
@@ -143,6 +178,9 @@ export async function what3wordsToSquare(
 /**
  * The three word address of the square holding a point.
  *
+ * @param point - A point inside the square.
+ * @param options - Key, language, signal and base URL.
+ * @returns {Promise<What3wordsSquare>} The square.
  * @throws {AuthError} Without a key, or when what3words rejects it.
  */
 export async function squareToWhat3words(

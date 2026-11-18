@@ -46,27 +46,65 @@ const BANDS = "CDEFGHJKLMNPQRSTUVWX";
 const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
 const toDegrees = (radians: number): number => (radians * 180) / Math.PI;
 
+/**
+ * Longitude down the middle of a zone.
+ *
+ * @param zone - Zone 1 to 60.
+ * @returns {number} Its central meridian.
+ */
 function centralMeridian(zone: number): number {
   return zone * 6 - 183;
 }
 
+/**
+ * Band letter of a latitude inside UTM's range.
+ *
+ * @param latitude - Latitude from 80°S to 84°N.
+ * @returns {string} A letter C to X.
+ */
 function bandOf(latitude: number): string {
   return BANDS[Math.min(Math.floor((latitude + 80) / 8), BANDS.length - 1)] as string;
 }
 
-/** The standard zone, with the Norway (32V) and Svalbard (31X-37X) exceptions. */
-function zoneOf(latitude: number, longitude: number): number {
-  if (latitude >= 56 && latitude < 64 && longitude >= 3 && longitude < 12) return 32;
-  if (latitude >= 72) {
-    if (longitude >= 0 && longitude < 9) return 31;
-    if (longitude >= 9 && longitude < 21) return 33;
-    if (longitude >= 21 && longitude < 33) return 35;
-    if (longitude >= 33 && longitude < 42) return 37;
-  }
-  return Math.min(Math.floor((longitude + 180) / 6) + 1, 60);
+/** Svalbard from 72°N: west edge, east edge and the widened zone that covers them. */
+const SVALBARD_ZONES = [
+  [0, 9, 31],
+  [9, 21, 33],
+  [21, 33, 35],
+  [33, 42, 37],
+] as const;
+
+/**
+ * The widened zone over Svalbard, for a point from 72°N up.
+ *
+ * @param longitude - Longitude of the point.
+ * @returns {number | undefined} Zone 31, 33, 35 or 37, or nothing outside them.
+ */
+function svalbardZone(longitude: number): number | undefined {
+  return SVALBARD_ZONES.find(([west, east]) => longitude >= west && longitude < east)?.[2];
 }
 
-/** Easting and northing of a point projected on a given zone's meridian. */
+/**
+ * The standard zone, with the Norway (32V) and Svalbard (31X-37X) exceptions.
+ *
+ * @param latitude - Latitude inside UTM's range.
+ * @param longitude - Longitude from -180 up to 180.
+ * @returns {number} Zone 1 to 60.
+ */
+function zoneOf(latitude: number, longitude: number): number {
+  if (latitude >= 56 && latitude < 64 && longitude >= 3 && longitude < 12) return 32;
+  const svalbard = latitude >= 72 ? svalbardZone(longitude) : undefined;
+  return svalbard ?? Math.min(Math.floor((longitude + 180) / 6) + 1, 60);
+}
+
+/**
+ * Easting and northing of a point projected on a given zone's meridian.
+ *
+ * @param latitude - Latitude in degrees.
+ * @param longitude - Longitude in degrees.
+ * @param zone - Zone to project on.
+ * @returns {[number, number]} Easting and northing in meters.
+ */
 function project(latitude: number, longitude: number, zone: number): [number, number] {
   const phi = toRadians(latitude);
   const lambda = toRadians(longitude - centralMeridian(zone));
@@ -92,6 +130,8 @@ function project(latitude: number, longitude: number, zone: number): [number, nu
 /**
  * UTM position of a point. UTM stops at 80°S and 84°N; the poles belong to UPS.
  *
+ * @param point - The point to project.
+ * @returns {UtmPosition} Its zone, band and meters.
  * @throws {InvalidInputError} When the point is out of range or outside UTM's latitudes.
  */
 export function toUtm(point: GeoPoint): UtmPosition {
@@ -111,6 +151,8 @@ export function toUtm(point: GeoPoint): UtmPosition {
 /**
  * Point at a UTM position. Bands N to X are north of the equator, C to M south of it.
  *
+ * @param position - Zone, band and meters.
+ * @returns {GeoPoint} The point.
  * @throws {InvalidInputError} When the zone, band or meters are out of range.
  */
 export function fromUtm(position: UtmPosition): GeoPoint {
@@ -120,7 +162,24 @@ export function fromUtm(position: UtmPosition): GeoPoint {
   return point;
 }
 
-/** The position with an upper case band, once zone, band and meters are in range. */
+/**
+ * Whether meters sit between zero and `max`. A NaN doesn't.
+ *
+ * @param value - Meters to check.
+ * @param max - The upper edge.
+ * @returns {boolean} True inside the range.
+ */
+function within(value: number, max: number): boolean {
+  return value >= 0 && value <= max;
+}
+
+/**
+ * The position with an upper case band, once zone, band and meters are in range.
+ *
+ * @param position - The position as given.
+ * @returns {UtmPosition} The checked position.
+ * @throws {InvalidInputError} When the zone, band or meters are out of range.
+ */
 function checkUtm(position: UtmPosition): UtmPosition {
   const { zone, easting, northing } = position;
   const band = position.band.toUpperCase();
@@ -132,10 +191,7 @@ function checkUtm(position: UtmPosition): UtmPosition {
       `UTM latitude band is a letter C-X without I and O, got "${position.band}"`,
     );
   }
-  if (
-    !(easting >= 0 && easting <= 1_000_000) ||
-    !(northing >= 0 && northing <= FALSE_NORTHING_SOUTH)
-  ) {
+  if (!within(easting, 1_000_000) || !within(northing, FALSE_NORTHING_SOUTH)) {
     throw new InvalidInputError(
       `UTM easting runs 0-1000000 m and northing 0-10000000 m, got ${easting} ${northing}`,
     );
@@ -143,7 +199,15 @@ function checkUtm(position: UtmPosition): UtmPosition {
   return { zone, band, easting, northing };
 }
 
-/** Throws unless the latitude sits in the band, give or take `slack` degrees. */
+/**
+ * Throws unless the latitude sits in the band, give or take `slack` degrees.
+ *
+ * @param latitude - Latitude that came out.
+ * @param band - Band it should sit in.
+ * @param slack - Degrees of tolerance.
+ * @param what - The input in words, for the error.
+ * @throws {InvalidInputError} When the latitude is outside the band.
+ */
 function assertBand(latitude: number, band: string, slack: number, what: string): void {
   const south = BANDS.indexOf(band) * 8 - 80;
   const north = band === "X" ? 84 : south + 8;
@@ -154,8 +218,17 @@ function assertBand(latitude: number, band: string, slack: number, what: string)
   }
 }
 
-/** West and east around `center`; a box over the antimeridian keeps west > east, as in GeoJSON. */
-function longitudeSpan(longitudes: number[], center: number): { west: number; east: number } {
+/**
+ * West and east around `center`; a box over the antimeridian keeps west > east, as in GeoJSON.
+ *
+ * @param longitudes - Longitudes of the corners.
+ * @param center - Longitude of the middle.
+ * @returns {{ west: number; east: number }} The two edges.
+ */
+function longitudeSpan(
+  longitudes: readonly number[],
+  center: number,
+): { west: number; east: number } {
   const offsets = longitudes.map(
     (longitude) => ((((longitude - center + 180) % 360) + 360) % 360) - 180,
   );
@@ -163,7 +236,15 @@ function longitudeSpan(longitudes: number[], center: number): { west: number; ea
   return { west: wrap(center + Math.min(...offsets)), east: wrap(center + Math.max(...offsets)) };
 }
 
-/** Krüger's inverse on one zone, with the band deciding only the hemisphere. */
+/**
+ * Krüger's inverse on one zone, with the band deciding only the hemisphere.
+ *
+ * @param zone - Zone 1 to 60.
+ * @param band - Latitude band letter.
+ * @param easting - Meters east.
+ * @param northing - Meters north.
+ * @returns {GeoPoint} The point.
+ */
 function inverse(zone: number, band: string, easting: number, northing: number): GeoPoint {
   const south = band < "N";
   const xi = (northing - (south ? FALSE_NORTHING_SOUTH : 0)) / (SCALE * RECTIFYING_RADIUS);
@@ -188,7 +269,13 @@ function inverse(zone: number, band: string, easting: number, northing: number):
   };
 }
 
-/** `34U 500000 5786000`, `decimals` places on the meters. */
+/**
+ * `34U 500000 5786000`, `decimals` places on the meters.
+ *
+ * @param position - Zone, band and meters.
+ * @param decimals - Places on the meters.
+ * @returns {string} The text.
+ */
 export function formatUtm(position: UtmPosition, decimals = 0): string {
   return `${position.zone}${position.band} ${position.easting.toFixed(decimals)} ${position.northing.toFixed(decimals)}`;
 }
@@ -196,7 +283,12 @@ export function formatUtm(position: UtmPosition, decimals = 0): string {
 const UTM_PATTERN =
   /^(\d{1,2})\s*([C-HJ-NP-X])\s+(\d+(?:\.\d+)?)\s*(?:m\s*E|E)?\s+(\d+(?:\.\d+)?)\s*(?:m\s*N|N)?$/i;
 
-/** True when the text has the shape of a UTM position (zone, band, easting, northing). */
+/**
+ * True when the text has the shape of a UTM position (zone, band, easting, northing).
+ *
+ * @param text - Candidate text.
+ * @returns {boolean} Whether it has the shape.
+ */
 export function isUtm(text: string): boolean {
   return UTM_PATTERN.test(text.trim());
 }
@@ -204,6 +296,8 @@ export function isUtm(text: string): boolean {
 /**
  * Read `34U 500000 5786000` (an `mE`/`mN` suffix is fine). The letter is the latitude band.
  *
+ * @param text - The position as written.
+ * @returns {UtmPosition} Zone, band and meters.
  * @throws {InvalidInputError} When the text is not a UTM position.
  */
 export function parseUtm(text: string): UtmPosition {
@@ -241,6 +335,9 @@ const MGRS_ROWS = "ABCDEFGHJKLMNPQRSTUV";
  *   encodeMgrs({ latitude: 52.2297, longitude: 21.0122 }, 4); // "34U EC 0083 8658"
  *   ```
  *
+ * @param point - The point to encode.
+ * @param digits - Digits per axis.
+ * @returns {string} The reference.
  * @throws {InvalidInputError} When the point lies outside UTM or `digits` is not 0-5.
  */
 export function encodeMgrs(point: GeoPoint, digits = 5): string {
@@ -261,7 +358,12 @@ export function encodeMgrs(point: GeoPoint, digits = 5): string {
 
 const MGRS_PATTERN = /^(\d{1,2})([C-HJ-NP-X])([A-HJ-NP-Z])([A-HJ-NP-V])(\d*)$/i;
 
-/** True when the text has the shape of an MGRS reference. */
+/**
+ * True when the text has the shape of an MGRS reference.
+ *
+ * @param text - Candidate text.
+ * @returns {boolean} Whether it has the shape.
+ */
 export function isMgrs(text: string): boolean {
   const compact = text.replaceAll(/\s+/g, "");
   const match = MGRS_PATTERN.exec(compact);
@@ -270,34 +372,78 @@ export function isMgrs(text: string): boolean {
   );
 }
 
+/** An MGRS reference in meters: the corner of its square nearest the origin, and its side. */
+interface MgrsSquare {
+  readonly zone: number;
+  readonly band: string;
+  /** The two 100 km square letters. */
+  readonly letters: string;
+  readonly easting: number;
+  /** Northing inside the 2000 km row cycle, before the band picks the cycle. */
+  readonly northing: number;
+  readonly size: number;
+}
+
+/** The five groups of `MGRS_PATTERN`; a match always has them all. */
+type MgrsParts = readonly [string, string, string, string, string];
+
 /**
- * The square an MGRS reference names, spaces optional (`34UEC00838658` or `34U EC 0083 8658`).
- * Row letters repeat every 2000 km, so the latitude band picks the cycle.
+ * Match a reference against the MGRS shape.
  *
- * @throws {InvalidInputError} When the reference is malformed or falls outside its latitude band.
+ * @param text - The reference as written.
+ * @returns {MgrsParts} Zone, band, column letter, row letter and digits.
+ * @throws {InvalidInputError} When the text is not an MGRS reference.
  */
-export function decodeMgrs(text: string): { center: GeoPoint; bounds: BoundingBox } {
-  const compact = text.replaceAll(/\s+/g, "").toUpperCase();
-  const match = MGRS_PATTERN.exec(compact);
+function matchMgrs(text: string): MgrsParts {
+  const match = MGRS_PATTERN.exec(text.replaceAll(/\s+/g, "").toUpperCase());
   const numbers = match?.[5] ?? "";
   if (!match || numbers.length % 2 !== 0 || numbers.length > 10) {
     throw new InvalidInputError(
       `"${text}" is not an MGRS reference; write zone, band, two square letters and an even number of digits, for example 34U EC 0083 8658`,
     );
   }
-  const zone = Number(match[1]);
-  const band = match[2] as string;
+  return match.slice(1) as unknown as MgrsParts;
+}
+
+/**
+ * Read a reference into meters on its zone.
+ *
+ * @param text - The reference as written.
+ * @returns {MgrsSquare} The square, its northing still inside one row cycle.
+ * @throws {InvalidInputError} When the reference is malformed.
+ */
+function readMgrs(text: string): MgrsSquare {
+  const [zoneText, band, column, row, numbers] = matchMgrs(text);
+  const zone = Number(zoneText);
   if (zone < 1 || zone > 60)
     throw new InvalidInputError(`MGRS zone runs from 1 to 60, got ${zone}`);
-  const columnIndex = (MGRS_COLUMNS[(zone - 1) % 3] as string).indexOf(match[3] as string);
+  const columnIndex = (MGRS_COLUMNS[(zone - 1) % 3] as string).indexOf(column);
   if (columnIndex < 0) {
-    throw new InvalidInputError(`Column letter ${match[3]} does not occur in MGRS zone ${zone}`);
+    throw new InvalidInputError(`Column letter ${column} does not occur in MGRS zone ${zone}`);
   }
-  const rowIndex = (MGRS_ROWS.indexOf(match[4] as string) - (zone % 2 === 0 ? 5 : 0) + 20) % 20;
+  const rowIndex = (MGRS_ROWS.indexOf(row) - (zone % 2 === 0 ? 5 : 0) + 20) % 20;
   const digits = numbers.length / 2;
   const size = 10 ** (5 - digits);
-  const easting = (columnIndex + 1) * 100_000 + Number(numbers.slice(0, digits) || 0) * size;
-  const rowNorthing = rowIndex * 100_000 + Number(numbers.slice(digits) || 0) * size;
+  return {
+    zone,
+    band,
+    letters: `${column}${row}`,
+    easting: (columnIndex + 1) * 100_000 + Number(numbers.slice(0, digits) || 0) * size,
+    northing: rowIndex * 100_000 + Number(numbers.slice(digits) || 0) * size,
+    size,
+  };
+}
+
+/**
+ * The square an MGRS reference names, spaces optional (`34UEC00838658` or `34U EC 0083 8658`).
+ * Row letters repeat every 2000 km, so the latitude band picks the cycle.
+ *
+ * @param text - The reference as written.
+ * @returns {{ center: GeoPoint; bounds: BoundingBox }} The square and its middle.
+ * @throws {InvalidInputError} When the reference is malformed or falls outside its latitude band.
+ */
+export function decodeMgrs(text: string): { center: GeoPoint; bounds: BoundingBox } {
+  const { zone, band, letters, easting, size, northing: rowNorthing } = readMgrs(text);
 
   const bandSouth = BANDS.indexOf(band) * 8 - 80;
   const lowest =
@@ -315,7 +461,7 @@ export function decodeMgrs(text: string): { center: GeoPoint; bounds: BoundingBo
     [easting + size, northing + size],
   ].map(([east, north]) => inverse(zone, band, east as number, north as number));
   const center = inverse(zone, band, easting + size / 2, northing + size / 2);
-  assertBand(center.latitude, band, 1, `MGRS square ${match[3]}${match[4]} in zone ${zone}`);
+  assertBand(center.latitude, band, 1, `MGRS square ${letters} in zone ${zone}`);
   return {
     center,
     bounds: {

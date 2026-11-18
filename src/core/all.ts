@@ -31,6 +31,13 @@ export interface SerializedOutcome<T> {
   error?: string;
 }
 
+/**
+ * Run one operation on every registered provider at once.
+ *
+ * @param run - The operation, given a provider.
+ * @param signal - Cancels every request.
+ * @returns {Promise<ProviderOutcome<T>[]>} One outcome per provider, in registration order.
+ */
 async function runAll<T>(
   run: (provider: Provider) => Promise<T>,
   signal?: AbortSignal,
@@ -58,6 +65,11 @@ async function runAll<T>(
  *
  *   const outcomes = await geocodeAll("Pałac Kultury i Nauki", { limit: 1 });
  *   ```
+ *
+ * @param query - Place or address to look up.
+ * @param options - Limit, language and filters.
+ * @param signal - Cancels every request.
+ * @returns {Promise<ProviderOutcome<GeoLocation[]>[]>} One outcome per provider.
  */
 export function geocodeAll(
   query: string,
@@ -67,7 +79,14 @@ export function geocodeAll(
   return runAll((provider) => requireOperation(provider, "geocode")(query, options), signal);
 }
 
-/** Geocode one structured address on every registered provider in parallel. */
+/**
+ * Geocode one structured address on every registered provider in parallel.
+ *
+ * @param address - Address parts to look up.
+ * @param options - Limit, language and filters.
+ * @param signal - Cancels every request.
+ * @returns {Promise<ProviderOutcome<GeoLocation[]>[]>} One outcome per provider.
+ */
 export function geocodeAddressAll(
   address: GeoAddress,
   options?: GeocodeOptions,
@@ -79,7 +98,15 @@ export function geocodeAddressAll(
   );
 }
 
-/** Reverse-geocode one coordinate pair on every registered provider in parallel. */
+/**
+ * Reverse-geocode one coordinate pair on every registered provider in parallel.
+ *
+ * @param latitude - Latitude in decimal degrees.
+ * @param longitude - Longitude in decimal degrees.
+ * @param options - Language and granularity.
+ * @param signal - Cancels every request.
+ * @returns {Promise<ProviderOutcome<GeoLocation>[]>} One outcome per provider.
+ */
 export function reverseAll(
   latitude: number,
   longitude: number,
@@ -92,9 +119,15 @@ export function reverseAll(
   );
 }
 
-/** JSON-safe outcomes for the MCP and AI tools; every success goes through `view` first. */
+/**
+ * JSON-safe outcomes for the MCP and AI tools; every success goes through `view` first.
+ *
+ * @param outcomes - What each provider answered.
+ * @param view - Trims a result before it's sent.
+ * @returns {SerializedOutcome<T>[]} The outcomes with errors as messages.
+ */
 export function serializeOutcomes<T>(
-  outcomes: ProviderOutcome<T>[],
+  outcomes: readonly ProviderOutcome<T>[],
   view: (result: T) => T = (result) => result,
 ): SerializedOutcome<T>[] {
   return outcomes.map((outcome) =>
@@ -104,7 +137,12 @@ export function serializeOutcomes<T>(
   );
 }
 
-/** A failure worth falling past: missing or rejected credentials, billing, or a rate limit. */
+/**
+ * A failure worth falling past: missing or rejected credentials, billing, or a rate limit.
+ *
+ * @param error - The normalized failure.
+ * @returns {boolean} Whether the next provider gets a try.
+ */
 function isSkippable(error: MapsError): boolean {
   return (
     error instanceof AuthError ||
@@ -120,6 +158,10 @@ function isSkippable(error: MapsError): boolean {
  * operations. Anything else (bad input, not found, transport) propagates immediately, and when
  * every provider is skipped the first skip reason is thrown - that is the error of the provider
  * auto-selection actually picked. An aborted `signal` ends the walk at the provider it reached.
+ *
+ * @param run - The operation, given a provider.
+ * @param signal - Cancels the request in flight.
+ * @returns {Promise<{ provider: string; result: T }>} The answer and who gave it.
  */
 async function runWithFallback<T>(
   run: (provider: Provider) => Promise<T>,
@@ -139,7 +181,14 @@ async function runWithFallback<T>(
   throw firstSkipped ?? new MapsError("No provider is registered");
 }
 
-/** Geocode on the auto-selected provider, falling past auth, billing, and rate-limit failures. */
+/**
+ * Geocode on the auto-selected provider, falling past auth, billing, and rate-limit failures.
+ *
+ * @param query - Place or address to look up.
+ * @param options - Limit, language and filters.
+ * @param signal - Cancels the request in flight.
+ * @returns {Promise<{ provider: string; result: GeoLocation[] }>} The matches and who found them.
+ */
 export function geocodeWithFallback(
   query: string,
   options?: GeocodeOptions,
@@ -151,7 +200,14 @@ export function geocodeWithFallback(
   );
 }
 
-/** Structured-address variant of `geocodeWithFallback`. */
+/**
+ * Structured-address variant of `geocodeWithFallback`.
+ *
+ * @param address - Address parts to look up.
+ * @param options - Limit, language and filters.
+ * @param signal - Cancels the request in flight.
+ * @returns {Promise<{ provider: string; result: GeoLocation[] }>} The matches and who found them.
+ */
 export function geocodeAddressWithFallback(
   address: GeoAddress,
   options?: GeocodeOptions,
@@ -163,7 +219,15 @@ export function geocodeAddressWithFallback(
   );
 }
 
-/** Reverse-geocoding variant of `geocodeWithFallback`. */
+/**
+ * Reverse-geocoding variant of `geocodeWithFallback`.
+ *
+ * @param latitude - Latitude in decimal degrees.
+ * @param longitude - Longitude in decimal degrees.
+ * @param options - Language and granularity.
+ * @param signal - Cancels the request in flight.
+ * @returns {Promise<{ provider: string; result: GeoLocation }>} The place and who found it.
+ */
 export function reverseWithFallback(
   latitude: number,
   longitude: number,

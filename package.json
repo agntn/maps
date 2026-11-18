@@ -1,7 +1,7 @@
 {
   "name": "@agntn/maps",
   "version": "0.1.0",
-  "description": "Unified geocoding and maps provider library for AI agents",
+  "description": "Unified geocoding and maps provider library for humans and agents",
   "keywords": [
     "omp-extension",
     "pi-package"
@@ -45,11 +45,11 @@
   "scripts": {
     "build": "obuild",
     "dev": "obuild --stub",
-    "fmt": "oxlint . --fix && oxfmt .",
-    "lint": "oxlint . && oxfmt --check .",
+    "fmt": "pnpm build && vp lint --fix && vp fmt",
+    "lint": "pnpm build && vp lint && vp fmt --check",
     "typecheck": "tsc --noEmit && pnpm build && tsc --noEmit -p tsconfig.extensions.json",
-    "test": "vitest --run",
-    "test:watch": "vitest",
+    "test": "vp test run",
+    "test:watch": "vp test watch",
     "test:cli": "pnpm build && node test/eval-cli.mjs",
     "test:mcp": "pnpm build && node test/eval-mcp.mjs",
     "test:packed": "node test/eval-packed.mjs",
@@ -61,6 +61,7 @@
     "@modelcontextprotocol/server": "catalog:deps"
   },
   "devDependencies": {
+    "@agntn/ox": "catalog:dev",
     "@earendil-works/pi-coding-agent": "catalog:dev",
     "@modelcontextprotocol/client": "catalog:dev",
     "@oh-my-pi/pi-coding-agent": "catalog:dev",
@@ -68,10 +69,8 @@
     "ai": "catalog:dev",
     "changelogen": "catalog:dev",
     "obuild": "catalog:dev",
-    "oxfmt": "catalog:dev",
-    "oxlint": "catalog:dev",
     "typescript": "catalog:dev",
-    "vitest": "catalog:dev"
+    "vite-plus": "catalog:dev"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": ">=0.84.2 <2",

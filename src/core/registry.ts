@@ -17,6 +17,9 @@ const registry = new Map<string, RegistryEntry>();
  *
  * Registering the same name again replaces the previous entry. That is useful in tests, but easy
  * to do by accident in application code.
+ *
+ * @param providerClass - The provider class.
+ * @param defaultURL - Public endpoint to advertise.
  */
 export function register(providerClass: ProviderConstructor, defaultURL?: string): void {
   registry.set(providerClass.key, { defaultURL, providerClass });
@@ -33,6 +36,9 @@ export function register(providerClass: ProviderConstructor, defaultURL?: string
  *   const [best] = await provider.geocode("Pałac Kultury i Nauki, Warszawa");
  *   ```
  *
+ * @param name - Registry key.
+ * @param config - Backend configuration.
+ * @returns {Provider} A new instance.
  * @throws {UnknownProviderError} When `name` has not been registered.
  */
 export function create(name: string, config?: ProviderConfig): Provider {
@@ -43,12 +49,21 @@ export function create(name: string, config?: ProviderConfig): Provider {
   return new entry.providerClass(config ?? {});
 }
 
-/** Return registered provider names in registration order. */
+/**
+ * Return registered provider names in registration order.
+ *
+ * @returns {string[]} The registry keys.
+ */
 export function providers(): string[] {
   return Array.from(registry.keys());
 }
 
-/** Check whether a name can be passed to `create`. */
+/**
+ * Check whether a name can be passed to `create`.
+ *
+ * @param name - Registry key.
+ * @returns {boolean} Whether it's registered.
+ */
 export function has(name: string): boolean {
   return registry.has(name);
 }
@@ -57,6 +72,9 @@ export function has(name: string): boolean {
  * Return the public endpoint advertised when a provider was registered.
  *
  * Per-instance `baseUrl` overrides are deliberately not reflected here.
+ *
+ * @param name - Registry key.
+ * @returns {string | undefined} The endpoint, or nothing for an unknown name.
  */
 export function getDefaultURL(name: string): string | undefined {
   return registry.get(name)?.defaultURL;
@@ -79,6 +97,8 @@ export interface ProviderListing {
  *
  * A provider whose constructor demands missing credentials is reported as requiring
  * configuration instead of failing the whole listing.
+ *
+ * @returns {ProviderListing[]} One row per provider, in registration order.
  */
 export function listProviders(): ProviderListing[] {
   return providers().map((name) => {
