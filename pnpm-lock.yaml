@@ -29,8 +29,8 @@ catalogs:
       specifier: 26.2.0
       version: 26.2.0
     ai:
-      specifier: 7.0.173
-      version: 7.0.173
+      specifier: 7.0.177
+      version: 7.0.177
     obuild:
       specifier: 0.4.45
       version: 0.4.45
@@ -50,7 +50,7 @@ importers:
     dependencies:
       '@agntn/tools':
         specifier: catalog:deps
-        version: 0.3.1(@earendil-works/pi-coding-agent@1.5.2(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.1(zod@4.4.3))(@smithy/signature-v4@5.7.5)(ws@8.21.3)(zod@4.4.3))(@modelcontextprotocol/server@2.2.0)(@oh-my-pi/pi-coding-agent@18.0.11)(ai@7.0.173(zod@4.4.3))(zod@4.4.3)
+        version: 0.3.1(@earendil-works/pi-coding-agent@1.5.2(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.1(zod@4.4.3))(@smithy/signature-v4@5.7.5)(ws@8.21.3)(zod@4.4.3))(@modelcontextprotocol/server@2.2.0)(@oh-my-pi/pi-coding-agent@18.0.11)(ai@7.0.177(zod@4.4.3))(zod@4.4.3)
       '@modelcontextprotocol/server':
         specifier: catalog:deps
         version: 2.2.0
@@ -72,7 +72,7 @@ importers:
         version: 26.2.0
       ai:
         specifier: catalog:dev
-        version: 7.0.173(zod@4.4.3)
+        version: 7.0.177(zod@4.4.3)
       obuild:
         specifier: catalog:dev
         version: 0.4.45(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(typescript@7.0.2)
@@ -117,20 +117,20 @@ packages:
       zod:
         optional: true
 
-  '@ai-sdk/gateway@4.0.146':
-    resolution: {integrity: sha512-rJ5NQSyjnpo6HSBEYc9Ff6k1EROUuB7KeAfHYVbVDsk68ynY0Eb8JeWflZKXlT6NhYgqyCiBDxE5blXWACXMKQ==}
+  '@ai-sdk/gateway@4.0.150':
+    resolution: {integrity: sha512-39jDj4UIN2M5kI/wW0IVMsD1PpjmZHSMFUU/yZSQerE4mg0Oo9AKPOSwn6Vu0MJ31aK+Mi9rUiUgl88Q2lkorg==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/provider-utils@5.0.81':
-    resolution: {integrity: sha512-pfvvdQ3d1WxdBuug/mnGEP6E48cPokwD8dMBnsFeeAUp0/rb/H2aj0f3mwOiY62gu/Cu5GO44e+SE5nDHyBWMA==}
+  '@ai-sdk/provider-utils@5.0.82':
+    resolution: {integrity: sha512-9s3Le9LsTR0exy14H8SERw4uMgFhiP0yJVoLefzfQCnnptj71noYh1AoVEsjfJjmMH1y16+1OqBVTDpTpU6M3Q==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/provider@4.0.38':
-    resolution: {integrity: sha512-GElz70UUCuDFFyD6m6aQJFgRY0HEABQzB5otzgkrisYaF5mnss7o0upAmbBTSD6KWiM9h7lZm1ls2c7xzHR8CA==}
+  '@ai-sdk/provider@4.0.39':
+    resolution: {integrity: sha512-jRvAhvW23+TeMGVCME2WGejP/TjzyDg7TplUep3t8HcEYnC2/8zqhCy9RRrjjVs1ljcygABZ8pQ21MbCRdF01w==}
     engines: {node: '>=22'}
 
   '@anthropic-ai/sdk@0.129.0':
@@ -1712,8 +1712,8 @@ packages:
     resolution: {integrity: sha512-TQf59BsZnytt8GdJKLPfUZ54g/iaUL2OWDSFCCvMOhsHduDQxO8xC4PNeyIkVcA5KwL2phPSv0douC0fgWzmnA==}
     engines: {node: '>= 20'}
 
-  ai@7.0.173:
-    resolution: {integrity: sha512-dLea37zT1h7cjkUsBprU4Rq35HJqhtHHaq1jTAXjHQoyfpeswpgCrhjZJWdWc10gjEAxmz114py7iLGQ3xIMxw==}
+  ai@7.0.177:
+    resolution: {integrity: sha512-DQNKH2lL4h+5Rxe34AxTdxXtNu3EnsDHpxIE6p4ETsi+r7sM187nP6JKrbASoSNEbR355H3FCGlSP7mj+m6Pzw==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -3069,18 +3069,22 @@ packages:
   yuku-ast@0.19.0:
     resolution: {integrity: sha512-PyCsiScaelhxBGzL8dyeJkLqvRZycoh78R31Vrt/WqYrm0hMFoKwIw/X7Dx5mBKLWAMlV9I9HEyBOHnj2gZVyw==}
     engines: {node: '>=14.18.0'}
+    deprecated: 'Yuku is now one package with one core. Use "yuku" instead: https://yuku.fyi/javascript/. Existing installs keep working but get no more fixes.'
 
   yuku-codegen@0.19.0:
     resolution: {integrity: sha512-uymAKHjDuaP4BEpkXC/BSLz4DUEF5oArZ5AuD3888nb2miChjWSgpPdojEJxm3pjpXkgUaCRJQyNAbnMN33wHg==}
     engines: {node: '>=14.18.0'}
+    deprecated: 'Yuku is now one package with one core. Use "yuku" instead: https://yuku.fyi/javascript/. Existing installs keep working but get no more fixes.'
 
   yuku-core@0.19.0:
     resolution: {integrity: sha512-kYK9e1XdfirNhkipzW0wmMcSWcVF/CWnuugodfVYRCUwvoBefweL9HzB96OiKEhsx78V5WbUxbJqlizMX869Qg==}
     engines: {node: '>=14.18.0'}
+    deprecated: 'Yuku is now one package with one core. Use "yuku" instead: https://yuku.fyi/javascript/. Existing installs keep working but get no more fixes.'
 
   yuku-parser@0.19.0:
     resolution: {integrity: sha512-XrBh9ZiQK5mJVRxZBAvD6LwRyAYrK3MFtH3+onyuxFL5hFD44EC3QOmIC1FjTj6H2MMwq46/NAI+NZxLZPZgxg==}
     engines: {node: '>=14.18.0'}
+    deprecated: 'Yuku is now one package with one core. Use "yuku" instead: https://yuku.fyi/javascript/. Existing installs keep working but get no more fixes.'
 
   zod-to-json-schema@3.25.2:
     resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
@@ -3101,30 +3105,30 @@ snapshots:
       oxlint: 1.94.0(oxlint-tsgolint@7.0.2007)(vite-plus@1.7.0(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(@vitest/ui@5.1.0)(jiti@2.7.0)(oxlint-tsgolint@7.0.2007)(typescript@7.0.2)(yaml@2.9.0))
       oxlint-tsgolint: 7.0.2007
 
-  '@agntn/tools@0.3.1(@earendil-works/pi-coding-agent@1.5.2(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.1(zod@4.4.3))(@smithy/signature-v4@5.7.5)(ws@8.21.3)(zod@4.4.3))(@modelcontextprotocol/server@2.2.0)(@oh-my-pi/pi-coding-agent@18.0.11)(ai@7.0.173(zod@4.4.3))(zod@4.4.3)':
+  '@agntn/tools@0.3.1(@earendil-works/pi-coding-agent@1.5.2(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.1(zod@4.4.3))(@smithy/signature-v4@5.7.5)(ws@8.21.3)(zod@4.4.3))(@modelcontextprotocol/server@2.2.0)(@oh-my-pi/pi-coding-agent@18.0.11)(ai@7.0.177(zod@4.4.3))(zod@4.4.3)':
     optionalDependencies:
       '@earendil-works/pi-coding-agent': 1.5.2(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.1(zod@4.4.3))(@smithy/signature-v4@5.7.5)(ws@8.21.3)(zod@4.4.3)
       '@modelcontextprotocol/server': 2.2.0
       '@oh-my-pi/pi-coding-agent': 18.0.11
-      ai: 7.0.173(zod@4.4.3)
+      ai: 7.0.177(zod@4.4.3)
       zod: 4.4.3
 
-  '@ai-sdk/gateway@4.0.146(zod@4.4.3)':
+  '@ai-sdk/gateway@4.0.150(zod@4.4.3)':
     dependencies:
-      '@ai-sdk/provider': 4.0.38
-      '@ai-sdk/provider-utils': 5.0.81(zod@4.4.3)
+      '@ai-sdk/provider': 4.0.39
+      '@ai-sdk/provider-utils': 5.0.82(zod@4.4.3)
       '@vercel/oidc': 3.2.0
       zod: 4.4.3
 
-  '@ai-sdk/provider-utils@5.0.81(zod@4.4.3)':
+  '@ai-sdk/provider-utils@5.0.82(zod@4.4.3)':
     dependencies:
-      '@ai-sdk/provider': 4.0.38
+      '@ai-sdk/provider': 4.0.39
       '@standard-schema/spec': 1.1.0
       '@workflow/serde': 4.1.0
       eventsource-parser: 3.1.1
       zod: 4.4.3
 
-  '@ai-sdk/provider@4.0.38':
+  '@ai-sdk/provider@4.0.39':
     dependencies:
       json-schema: 0.4.0
 
@@ -4554,11 +4558,11 @@ snapshots:
 
   agent-base@9.0.0: {}
 
-  ai@7.0.173(zod@4.4.3):
+  ai@7.0.177(zod@4.4.3):
     dependencies:
-      '@ai-sdk/gateway': 4.0.146(zod@4.4.3)
-      '@ai-sdk/provider': 4.0.38
-      '@ai-sdk/provider-utils': 5.0.81(zod@4.4.3)
+      '@ai-sdk/gateway': 4.0.150(zod@4.4.3)
+      '@ai-sdk/provider': 4.0.39
+      '@ai-sdk/provider-utils': 5.0.82(zod@4.4.3)
       zod: 4.4.3
 
   ajv-formats@3.0.1:
